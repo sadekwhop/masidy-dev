@@ -20,6 +20,7 @@ import {
 	useSidebar,
 } from '@cloudflare/kumo';
 import { useAuth } from '@/contexts/auth-context';
+import { MasidyLogo } from '@/components/masidy-logo';
 import { useApps, useFavoriteApps, useRecentApps } from '@/hooks/use-apps';
 import { AppActionsDropdown } from '@/components/shared/AppActionsDropdown';
 import { OrangeButton } from '@/components/shared/OrangeButton';
@@ -262,9 +263,10 @@ export function AppSidebar() {
 			>
 				{isCollapsed ? (
 					<div className="relative flex size-9 items-center justify-center">
-						<CloudflareLogo
-							variant="glyph"
-							className="size-7 shrink-0 transition-opacity group-hover/sidebar:opacity-0 group-focus-within/sidebar:opacity-0"
+						<MasidyLogo
+							collapsed
+							markClassName="size-7"
+							className="transition-opacity group-hover/sidebar:opacity-0 group-focus-within/sidebar:opacity-0"
 						/>
 						<Sidebar.Trigger
 							aria-label="Open sidebar"
@@ -276,14 +278,9 @@ export function AppSidebar() {
 						<Link
 							to="/"
 							className="flex min-w-0 flex-1 items-center gap-2.5 text-kumo-strong"
+							aria-label="Masidy home"
 						>
-							<CloudflareLogo
-								variant="glyph"
-								className="size-7 shrink-0"
-							/>
-							<span className="min-w-0 flex-1 truncate text-base font-black font-funky-mono uppercase tracking-wide">
-								Build
-							</span>
+							<MasidyLogo className="min-w-0" />
 						</Link>
 						<Sidebar.Trigger
 							aria-label="Collapse sidebar"

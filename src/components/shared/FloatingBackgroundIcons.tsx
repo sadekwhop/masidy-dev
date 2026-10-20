@@ -35,7 +35,7 @@ const FLOATING_ICONS: readonly FloatingIcon[] = [
 		dur: '7.5s',
 		delay: '0s',
 		bob: '-8px',
-		color: '#f6821f',
+		color: '#9eff1f',
 	},
 	{
 		Icon: RocketLaunch,
@@ -47,7 +47,7 @@ const FLOATING_ICONS: readonly FloatingIcon[] = [
 		dur: '6.4s',
 		delay: '1.4s',
 		bob: '-5px',
-		color: '#f6821f',
+		color: '#9eff1f',
 	},
 	{
 		Icon: RocketLaunch,
@@ -59,7 +59,7 @@ const FLOATING_ICONS: readonly FloatingIcon[] = [
 		dur: '8.1s',
 		delay: '2.2s',
 		bob: '-7px',
-		color: '#fb923c',
+		color: '#b7ff55',
 	},
 	{
 		Icon: RocketLaunch,
@@ -71,7 +71,7 @@ const FLOATING_ICONS: readonly FloatingIcon[] = [
 		dur: '5.8s',
 		delay: '0.8s',
 		bob: '-4px',
-		color: '#f97316',
+		color: '#78b900',
 	},
 	{
 		Icon: RocketLaunch,
@@ -83,7 +83,7 @@ const FLOATING_ICONS: readonly FloatingIcon[] = [
 		dur: '7.1s',
 		delay: '3s',
 		bob: '-6px',
-		color: '#ea580c',
+		color: '#6da800',
 	},
 	{
 		Icon: RocketLaunch,
@@ -95,7 +95,7 @@ const FLOATING_ICONS: readonly FloatingIcon[] = [
 		dur: '6s',
 		delay: '1.7s',
 		bob: '-4px',
-		color: '#fdba74',
+		color: '#d1ff91',
 	},
 	{
 		Icon: RocketLaunch,
@@ -107,7 +107,7 @@ const FLOATING_ICONS: readonly FloatingIcon[] = [
 		dur: '8.8s',
 		delay: '0.4s',
 		bob: '-7px',
-		color: '#f6821f',
+		color: '#9eff1f',
 	},
 	// globe
 	{

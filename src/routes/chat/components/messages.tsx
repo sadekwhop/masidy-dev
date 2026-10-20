@@ -1,5 +1,5 @@
-import { AIAvatar } from '../../../components/icons/logos';
 import { cn } from '@cloudflare/kumo';
+import { MasidyLogo } from '@/components/masidy-logo';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeExternalLinks from 'rehype-external-links';
@@ -860,9 +860,9 @@ export function AIMessage({
 	return (
 		<div className="flex flex-col gap-2 min-w-0">
 			<div className="font-mono font-medium text-text-50 flex items-center gap-2 mb-3">
-				<AIAvatar className="size-5 text-orange-500 shrink-0" />
-				Orange
-				{isThinking && <Sparkles className="size-3 text-orange-400 animate-pulse" />}
+				<MasidyLogo collapsed markClassName="size-5" />
+				Masidy
+				{isThinking && <Sparkles className="size-3 text-brand animate-pulse" />}
 			</div>
 			<div className={cn(isThinking && 'animate-pulse')}>
 				<AssistantParts parts={resolvedParts} streaming={!!isThinking} />

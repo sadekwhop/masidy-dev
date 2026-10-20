@@ -249,7 +249,7 @@ export default function SettingsPage() {
 
 	return (
 		<div className="relative">
-			<title>Settings - Build</title>
+			<title>Settings - Masidy</title>
 			<main className="container mx-auto px-4 py-16 max-w-4xl pb-48">
 				<div className="grid gap-8">
 					{/* Page Header */}

@@ -23,6 +23,7 @@ import { useDragDrop } from '@/hooks/use-drag-drop';
 import { toast } from 'sonner';
 import { useLimitsContext } from '@/contexts/limits-context';
 import { checkCanSendPrompt } from '@/utils/usage-limit-checker';
+import { MasidyLogo } from '@/components/masidy-logo';
 import { PromptBox } from '@/components/prompt-box';
 import { InfoIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
 import { startCloudflareConnect } from '@/lib/cloudflare-connect';
@@ -185,7 +186,7 @@ export default function Home() {
 
 	return (
 		<div className="relative flex flex-col items-center w-full min-h-full">
-			<title>Build</title>
+			<title>Masidy — AI app builder</title>
 			<div className="home-atmosphere" aria-hidden>
 				<div className="home-atmosphere__spotlight" />
 			</div>
@@ -203,6 +204,10 @@ export default function Home() {
 								: 'mt-[18vh] sm:mt-[22vh] md:mt-[26vh]',
 						)}
 					>
+						<MasidyLogo
+							markClassName="size-8"
+							className="mb-5 justify-center text-sm"
+						/>
 						<div className="mb-6 sm:mb-7 grid gap-2">
 							<h1 className="w-full text-center text-[clamp(1.75rem,4.5vw,2.5rem)] font-semibold leading-[1.12] text-kumo-strong/80 z-20">
 								What should we{' '}
@@ -262,11 +267,13 @@ export default function Home() {
 						>
 							<div
 								className="flex items-start gap-2 px-4 py-3 rounded-xl bg-bg-4/50 dark:bg-bg-2/50 shadow-sm"
-								style={{ borderColor: 'rgba(255, 61, 0, 0.2)' }}
+								style={{
+									borderColor:
+										'color-mix(in srgb, var(--color-brand) 20%, transparent)',
+								}}
 							>
 								<InfoIcon
-									className="size-4 flex-shrink-0 mt-0.5"
-									style={{ color: '#ff3d00' }}
+									className="size-4 flex-shrink-0 mt-0.5 text-brand"
 								/>
 								<p className="text-xs text-kumo-subtle leading-relaxed">
 									<span className="font-medium text-text-secondary">

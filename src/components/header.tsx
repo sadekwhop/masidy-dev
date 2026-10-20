@@ -1,6 +1,6 @@
 import React from 'react';
 import { cn } from '@cloudflare/kumo';
-import { CloudflareLogo } from './icons/logos';
+import { MasidyLogo } from './masidy-logo';
 import { Link } from 'react-router';
 
 export function Header({
@@ -15,11 +15,8 @@ export function Header({
 			)}
 		>
 			<h1 className="flex items-center gap-2 mx-4">
-				<Link to="/">
-					<CloudflareLogo
-						className="h-4 text-bg-bright-dim"
-						aria-label="Cloudflare v1"
-					/>
+				<Link to="/" aria-label="Masidy home">
+					<MasidyLogo markClassName="size-6" />
 				</Link>
 			</h1>
 			<div className="flex-1"></div>

@@ -50,13 +50,14 @@
 		'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 	--font-funky-mono: 'Departure Mono', var(--font-mono);
 
-	--color-brand: #ff3d00;
+	--color-brand: #507a00;
 	--color-text: #000;
 }
 
 @layer base {
 	:root {
 		--radius: 0.625rem;
+		--color-brand: #507a00;
 		--destructive: oklch(0.577 0.245 27.325);
 		--border: oklch(0.922 0 0);
 		--input: oklch(0.922 0 0);
@@ -69,9 +70,9 @@
 		--build-chat-colors-border-secondary: #eeeeee;
 		--build-chat-colors-border-tertiary: #eeeeee;
 		--build-chat-colors-danger: #950000cc;
-		--build-chat-colors-brand-primary: #f6821f;
-		--build-chat-colors-brand-light: #faae42;
-		--build-chat-colors-text-inverted: #ffffff;
+		--build-chat-colors-brand-primary: #78b900;
+		--build-chat-colors-brand-light: #9eff1f;
+		--build-chat-colors-text-inverted: #111111;
 		--build-chat-colors-text-primary: #0a0a0a;
 		--build-chat-colors-text-secondary: #171717;
 		--build-chat-colors-text-tertiary: #21212199;
@@ -89,12 +90,15 @@
 		--build-chat-colors-border-primary: #393939;
 		--build-chat-colors-border-secondary: #454746;
 		--build-chat-colors-border-tertiary: #454746;
-		--build-chat-colors-brand-primary: #f6821f;
-		--build-chat-colors-brand-light: #faae42;
-		--build-chat-colors-text-inverted: #000000;
+		--build-chat-colors-brand-primary: #9eff1f;
+		--build-chat-colors-brand-light: #bdff66;
+		--build-chat-colors-text-inverted: #111111;
 		--build-chat-colors-text-primary: #ffffff;
 		--build-chat-colors-text-secondary: #cdcaca;
 		--build-chat-colors-text-tertiary: #bcb9b9;
+		--color-brand: #9eff1f;
+		--build-chat-colors-brand-primary: #9eff1f;
+		--build-chat-colors-brand-light: #bdff66;
 	}
 
 	* {
@@ -137,13 +141,13 @@
 	0%,
 	100% {
 		box-shadow:
-			0 0 0 0 rgba(246, 130, 31, 0.1),
-			inset 0 0 0 1px rgba(246, 130, 31, 0.16);
+			0 0 0 0 rgba(120, 185, 0, 0.1),
+			inset 0 0 0 1px rgba(120, 185, 0, 0.16);
 	}
 	50% {
 		box-shadow:
-			0 0 0 6px rgba(255, 61, 0, 0.08),
-			inset 0 0 0 2px rgba(255, 61, 0, 0.22);
+			0 0 0 6px rgba(158, 255, 31, 0.08),
+			inset 0 0 0 2px rgba(158, 255, 31, 0.22);
 	}
 }
 
@@ -204,7 +208,7 @@
 .run-app-icons > span {
 	position: absolute;
 	display: flex;
-	color: var(--icon-color, var(--color-brand, #f6821f));
+	color: var(--icon-color, var(--color-brand, #78b900));
 	opacity: var(--op, 0.22);
 	animation: run-app-icon-float var(--dur, 7s) ease-in-out infinite;
 	animation-delay: var(--delay, 0s);
@@ -236,14 +240,14 @@
 	position: absolute;
 	inset: 0;
 	background:
-		/* Warm brand core behind headline + prompt */
+		/* Masidy lime glow behind the home hero */
 		radial-gradient(
 			ellipse 42% 34% at 50% 28%,
-			rgba(246, 130, 31, 0.18) 0%,
-			rgba(246, 130, 31, 0.08) 32%,
+			rgba(158, 255, 31, 0.16) 0%,
+			rgba(158, 255, 31, 0.07) 32%,
 			transparent 68%
 		),
-		/* Soft cool rim so the stage reads as lit, not flat orange */
+		/* Soft neutral rim so the stage reads as lit, not flat */
 		radial-gradient(
 				ellipse 58% 46% at 50% 30%,
 				rgba(255, 255, 255, 0.06) 0%,
@@ -261,8 +265,8 @@
 	background:
 		radial-gradient(
 			ellipse 42% 34% at 50% 28%,
-			rgba(246, 130, 31, 0.14) 0%,
-			rgba(246, 130, 31, 0.05) 32%,
+			rgba(120, 185, 0, 0.14) 0%,
+			rgba(120, 185, 0, 0.05) 32%,
 			transparent 68%
 		),
 		radial-gradient(
@@ -348,8 +352,8 @@
 @utility text-brand-emphasis {
 	background-image: linear-gradient(
 		to bottom,
-		color-mix(in oklch, var(--color-brand), white 15%),
-		var(--color-brand)
+		var(--color-brand),
+		color-mix(in oklch, var(--color-brand), black 10%)
 	);
 	-webkit-background-clip: text;
 	background-clip: text;

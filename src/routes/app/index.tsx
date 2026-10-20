@@ -620,7 +620,7 @@ export default function AppView() {
 	if (loading) {
 		return (
 			<>
-				<title>Loading - Build</title>
+				<title>Loading - Masidy</title>
 				<AppLoadingSkeleton />
 			</>
 		);
@@ -629,7 +629,7 @@ export default function AppView() {
 	if (error || !app) {
 		return (
 			<div className="size-full flex items-center justify-center p-4">
-				<title>App not found - Build</title>
+				<title>App not found - Masidy</title>
 				<LayerCard className="max-w-md w-full px-5 py-6">
 					<div className="text-center grid gap-4">
 						<div className="grid gap-1.5">
@@ -659,7 +659,7 @@ export default function AppView() {
 
 	return (
 		<div className="size-full flex flex-col min-h-0">
-			<title>{app.title ? `${app.title} - Build` : 'App - Build'}</title>
+			<title>{app.title ? `${app.title} - Masidy` : 'App - Masidy'}</title>
 			<div className="shrink-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-2 border-b bg-kumo-base">
 				<Tabs
 					value={activeTab}

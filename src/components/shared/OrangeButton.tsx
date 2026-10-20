@@ -3,7 +3,7 @@ import { Button, type ButtonProps, cn } from '@cloudflare/kumo';
 
 export type OrangeButtonProps = Omit<ButtonProps, 'variant'>;
 
-/** Mirrors Kumo primary emphasis tokens, keyed off brand orange instead of kumo-brand blue. */
+/** Mirrors Kumo primary emphasis tokens using the Masidy brand palette. */
 const orangeEmphasisStyle = {
 	'--kumo-button-emphasis-ring':
 		'color-mix(in oklch, var(--color-brand), black 10%)',
