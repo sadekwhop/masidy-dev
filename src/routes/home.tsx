@@ -192,8 +192,8 @@ export default function Home() {
 						className={cn(
 							'flex flex-col items-stretch z-10 w-full',
 							discoverReady
-								? 'mt-28 sm:mt-36'
-								: 'mt-[18vh] sm:mt-[22vh] md:mt-[26vh]',
+								? 'mt-20 sm:mt-36'
+								: 'mt-12 sm:mt-[22vh] md:mt-[26vh]',
 						)}
 					>
 						<MasidyLogo

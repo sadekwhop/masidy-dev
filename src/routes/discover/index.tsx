@@ -69,28 +69,28 @@ export default function DiscoverPage() {
 	return (
 		<div className="size-full">
 			<title>Discover - Masidy</title>
-			<div className="container max-w-6xl mx-auto px-4 py-8">
+			<div className="container mx-auto max-w-6xl px-3 py-5 sm:px-4 sm:py-8">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.5 }}
 				>
 					{/* Header */}
-					<div className="mb-8 mt-6">
-						<h1 className="flex items-center gap-2 text-6xl font-funky-mono font-bold mb-3 text-brand-emphasis">
+					<div className="mb-5 mt-3 sm:mb-8 sm:mt-6">
+						<h1 className="mb-2 flex items-center gap-2 text-3xl font-funky-mono font-bold leading-tight text-brand-emphasis sm:mb-3 sm:text-6xl">
 							<BrandEmphasisIcon
 								icon={GlobeIcon}
 								weight="duotone"
-								className="-rotate-30"
+								className="size-7 -rotate-30 sm:size-10"
 							/>
 							Discover
 						</h1>
-						<p className="text-kumo-subtle text-lg font-funky-mono tracking-tight">
+						<p className="text-sm font-funky-mono tracking-tight text-kumo-subtle sm:text-lg">
 							Explore apps built by the community
 						</p>
 					</div>
 
-					<div className="flex flex-wrap items-start gap-3 justify-between mb-8">
+					<div className="mb-5 flex flex-col items-stretch gap-3 sm:mb-8 sm:flex-row sm:items-start sm:justify-between">
 						{/* Search and Filters */}
 						<AppFiltersForm
 							searchQuery={searchQuery}

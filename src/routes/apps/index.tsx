@@ -66,18 +66,18 @@ export default function AppsPage() {
 	return (
 		<div className="size-full">
 			<title>My Apps - Masidy</title>
-			<div className="container mx-auto px-4 py-8">
+			<div className="container mx-auto px-3 py-5 sm:px-4 sm:py-8">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={{ duration: 0.5 }}
 				>
 					{/* Header */}
-					<div className="mb-8">
-						<h1 className="text-6xl font-bold mb-3 font-funky-mono text-kumo-brand">
+					<div className="mb-5 sm:mb-8">
+						<h1 className="mb-2 text-3xl font-bold leading-tight font-funky-mono text-kumo-brand sm:mb-3 sm:text-6xl">
 							MY APPS
 						</h1>
-						<p className="text-kumo-subtle text-lg">
+						<p className="text-sm text-kumo-subtle sm:text-lg">
 							{loading
 								? 'Loading...'
 								: `${totalCount} app${totalCount !== 1 ? 's' : ''} in your workspace`}
@@ -92,7 +92,7 @@ export default function AppsPage() {
 							/>
 						</div>
 
-						<div className="flex items-start gap-4 justify-between">
+						<div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
 							{/* Search and Filters */}
 							<AppFiltersForm
 								searchQuery={searchQuery}

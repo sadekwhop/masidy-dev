@@ -221,11 +221,11 @@ export default function SettingsPage() {
 	return (
 		<div className="relative">
 			<title>Settings - Masidy</title>
-			<main className="container mx-auto px-4 py-16 max-w-4xl pb-48">
-				<div className="grid gap-8">
+			<main className="container mx-auto max-w-4xl px-3 py-8 pb-32 sm:px-4 sm:py-16 sm:pb-48">
+				<div className="grid gap-5 sm:gap-8">
 					{/* Page Header */}
 					<div className="grid gap-1.5 mb-4">
-						<h1 className="text-4xl font-semibold font-funky-mono text-kumo-default">
+						<h1 className="text-2xl font-semibold font-funky-mono text-kumo-default sm:text-4xl">
 							Settings
 						</h1>
 						<p className="text-sm text-kumo-subtle font-funky-mono">

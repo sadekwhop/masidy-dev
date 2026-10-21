@@ -38,9 +38,9 @@ export const AppFiltersForm: React.FC<AppFiltersFormProps> = ({
 	className = '',
 }) => {
 	return (
-		<div className={`max-w-4xl ${className}`}>
-			<form onSubmit={onSearchSubmit} className="flex gap-2 mb-4">
-				<div className="relative">
+		<div className={`w-full max-w-4xl ${className}`}>
+			<form onSubmit={onSearchSubmit} className="mb-4 flex w-full gap-2">
+				<div className="relative min-w-0 flex-1">
 					<MagnifyingGlassIcon
 						weight="duotone"
 						className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary"
@@ -50,7 +50,7 @@ export const AppFiltersForm: React.FC<AppFiltersFormProps> = ({
 						placeholder={searchPlaceholder}
 						value={searchQuery}
 						onChange={(e) => onSearchChange(e.target.value)}
-						className="pl-10 w-90"
+						className="w-full min-w-0 pl-10"
 					/>
 				</div>
 

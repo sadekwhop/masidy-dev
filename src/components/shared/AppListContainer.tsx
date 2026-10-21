@@ -92,7 +92,7 @@ const AppCardSkeletonGrid = ({
 	count?: number;
 	showUser?: boolean;
 }) => (
-	<div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+	<div className="grid grid-cols-1 gap-3 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
 		{[...Array(count)].map((_, i) => (
 			<AppCardSkeleton key={`skeleton-${i}`} showUser={showUser} />
 		))}
@@ -175,7 +175,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
 
 	if (error) {
 		return (
-			<div className="text-center py-20">
+			<div className="py-12 text-center sm:py-20">
 				<div className="rounded-full bg-destructive/10 p-3 mb-4 inline-flex">
 					<X className="h-6 w-6 text-destructive" />
 				</div>
@@ -195,9 +195,9 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
 		const emptyStateContent = emptyState || defaultEmptyState;
 
 		return (
-			<div className="text-center py-20">
-				<Code2 className="h-16 w-16 mx-auto mb-4 text-kumo-subtle" />
-				<h3 className="text-xl font-semibold mb-2 text-kumo-subtle">
+			<div className="py-12 text-center sm:py-20">
+				<Code2 className="mx-auto mb-4 size-12 text-kumo-subtle sm:size-16" />
+				<h3 className="mb-2 text-lg font-semibold text-kumo-subtle sm:text-xl">
 					{emptyStateContent.title}
 				</h3>
 				<p className="text-kumo-subtle mb-6">
@@ -214,7 +214,7 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
 				variants={containerVariants}
 				initial="hidden"
 				animate="visible"
-				className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+				className="grid grid-cols-1 gap-3 sm:gap-6 md:grid-cols-2 lg:grid-cols-3"
 			>
 				<AnimatePresence mode="popLayout">
 					{apps.map((app) => (
