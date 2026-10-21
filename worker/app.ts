@@ -41,6 +41,9 @@ export function createApp(env: Env): Hono<AppEnv> {
     // CSRF protection using double-submit cookie pattern with proper GET handling
     app.use('*', async (c, next) => {
         const method = c.req.method.toUpperCase();
+        if (new URL(c.req.url).pathname === '/mcp') {
+            return next();
+        }
         
         // Skip for WebSocket upgrades
         const upgradeHeader = c.req.header('upgrade');

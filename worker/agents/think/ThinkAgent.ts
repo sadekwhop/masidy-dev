@@ -26,6 +26,7 @@ import { RateLimitService } from '../../services/rate-limit/rateLimits';
 import { hasCloudflareConfigured } from '../../services/rate-limit/usageChecker';
 import type { RateLimitSettings } from '../../services/rate-limit/config';
 import { THINK_MODEL_CONFIG } from './model-config';
+import { createCloudflareStackTools } from './cloudflare-stack-tools';
 
 /**
  * Per-instance configuration pushed into a {@link ThinkAgent} by the host
@@ -43,6 +44,7 @@ export interface ThinkAgentConfig {
 	model: {
 		modelName: string;
 		gatewayId: string;
+		dynamicRouteName?: string;
 		contextSize?: number;
 	};
 	/** Builder system prompt (assembled host-side; falls back to a default). */
@@ -89,10 +91,21 @@ export class ThinkAgent extends Think<Env> {
 	}
 
 	override getModel(): LanguageModel {
-		const { model } = this.requireConfig();
+		const { model, userId } = this.requireConfig();
 		return createWorkersAI({ binding: this.env.AI })(
-			model.modelName,
-			{ gateway: { id: model.gatewayId } },
+			model.dynamicRouteName
+				? `dynamic/${model.dynamicRouteName}`
+				: model.modelName,
+			{
+				gateway: {
+					id: model.gatewayId,
+					metadata: {
+						application: 'masidy',
+						agent: 'think',
+						user_id: userId,
+					},
+				},
+			},
 		);
 	}
 
@@ -180,6 +193,7 @@ export class ThinkAgent extends Think<Env> {
 				env: this.env,
 				defaultUrl: previewUrl,
 			}),
+			...createCloudflareStackTools(),
 		} as unknown as ToolSet;
 	}
 

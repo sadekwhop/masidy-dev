@@ -308,6 +308,11 @@ const worker = {
 				const app = createApp(env);
 				return app.fetch(request, env, ctx);
 			}
+
+			if (pathname === '/mcp') {
+				const app = createApp(env);
+				return app.fetch(request, env, ctx);
+			}
 			
 			// Serve static assets for all other non-API routes from the ASSETS binding.
 			if (!pathname.startsWith('/api/')) {

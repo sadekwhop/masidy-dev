@@ -18,6 +18,7 @@ import { setupLimitsRoutes } from './limitsRoutes';
 import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
+import { setupMcpRoutes } from './mcpRoutes';
 
 export function setupRoutes(app: Hono<AppEnv>): void {
     // Health check route
@@ -30,6 +31,9 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Platform status routes (public)
     setupStatusRoutes(app);
+
+    // Cloudflare Access-protected remote MCP endpoint
+    setupMcpRoutes(app);
 
     // Platform capabilities routes (public)
     setupCapabilitiesRoutes(app);

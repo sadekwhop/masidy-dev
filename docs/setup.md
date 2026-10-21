@@ -124,6 +124,9 @@ The setup script offers multiple AI providers with intelligent multi-selection:
 - This path does not require a Google, OpenAI, or other third-party model API key.
 - Workers AI has a daily free Neurons allocation on eligible accounts; it is not unlimited, and usage beyond that allocation may be billed depending on the account plan and settings.
 - Confirm the model is available and the AI Gateway is configured to use Workers AI billing before relying on the free allocation.
+- Think can optionally use an AI Gateway Dynamic Route by setting `CLOUDFLARE_AI_GATEWAY_ROUTE` to the name of a route that already exists and is deployed on the configured gateway. Production and staging currently select the `yes` route. Configure that route's model order, fallback, and budget limits in Cloudflare to implement the requested cost-first policy; this repository selects the route but cannot set its dashboard policy. Requests use `dynamic/<route-name>` and attach `application`, `agent`, and opaque `user_id` metadata for route rules, spend limits, and analytics. If unset, the builder continues using GLM-4.7-Flash directly.
+- Dynamic routes require an OpenAI Chat Completions-compatible flow. Use Workers AI models for a no-third-party-key route; third-party model nodes can incur separate provider/unified-billing charges. Configure budget limits and a cheaper fallback in the Cloudflare dashboard before enabling a route in production. AI Gateway's spend limits are eventually consistent, so they are not a strict hard cap during concurrent requests.
+- AI Gateway response caching is exact-request matching and disabled unless enabled in the gateway. It may not meaningfully reduce cost for unique coding conversations; do not use a shared custom cache key for personalized prompts.
 
 **Other AI-powered features:**
 - Other configured model workflows may still use Google AI Studio, OpenAI, Anthropic, or another provider.
@@ -138,6 +141,18 @@ The setup script offers multiple AI providers with intelligent multi-selection:
 **Without AI Gateway:**
 - **Manual config.ts editing required** for all model configurations
 - Model names must follow `<provider-name>/<model-name>` format
+
+### MCP tools
+
+Think can search current Cloudflare, Vite, Vitest, Astro, OpenNext, Replicate, and Hono documentation using Cloudflare's Developer Stack MCP. It only calls the catalog's read-only `list_libraries` and `search_dev_stack` tools; this configured catalog does not expose Cloudflare account-changing API actions.
+
+Masidy also exposes a stateless remote MCP endpoint at `/mcp`, with read-only `list_public_apps` and `get_public_app_summary` tools. The endpoint fails closed until Cloudflare Access is configured:
+
+1. Set up the MCP-compatible Cloudflare Access for SaaS flow for the production and staging `/mcp` paths, and add the identity policies permitted to use it. Follow [Cloudflare's Access MCP guide](https://developers.cloudflare.com/cloudflare-one/access-controls/ai-controls/secure-mcp-servers/).
+2. Set `CF_ACCESS_TEAM_DOMAIN` to the Access team issuer URL (for example, `https://<team>.cloudflareaccess.com`) and `CF_ACCESS_AUD` to that Access application's audience tag in both Worker environments.
+3. Connect an MCP client to `https://masidy.dev/mcp` and complete the Cloudflare Access login flow.
+
+The Worker independently verifies the `Cf-Access-Jwt-Assertion` signature, issuer, and audience; a missing or invalid token is rejected. Public app tools return only explicitly selected summary fields and never return private app data, source code, prompts, deployment identifiers, or owner IDs. OAuth/Access configuration must be completed before external clients can connect.
 
 ### OAuth Configuration
 

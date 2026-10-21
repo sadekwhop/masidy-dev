@@ -26,7 +26,7 @@ import { signSpacePreviewToken } from 'worker/utils/spacePreviewToken';
 import { AppService } from 'worker/database/services/AppService';
 import type { ThinkAgentConfig } from '../../think/ThinkAgent';
 import { withDurableObjectResetRetry } from '../../think/space-workspace-ops';
-import { THINK_MODEL_CONFIG, THINK_MODEL_ID } from '../../think/model-config';
+import { getThinkModelId, THINK_MODEL_CONFIG, THINK_MODEL_ID } from '../../think/model-config';
 import type { BranchDeploymentBundle } from '@space-do/space';
 import { CloudflareAccountService } from '../../../services/cloudflare/CloudflareAccountService';
 import { deployThinkBundleToUserAccount } from '../../../services/deployer/think-user-deploy';
@@ -219,8 +219,15 @@ export class ThinkCodingBehavior
 		const modelName = THINK_MODEL_ID;
 		const aiModelConfig = THINK_MODEL_CONFIG;
 		const gatewayId = this.env.CLOUDFLARE_AI_GATEWAY;
+		const dynamicRouteName = this.env.CLOUDFLARE_AI_GATEWAY_ROUTE?.trim();
 		if (!gatewayId) {
 			this.logger.error('CLOUDFLARE_AI_GATEWAY is required to configure ThinkAgent');
+			return;
+		}
+		try {
+			getThinkModelId(dynamicRouteName);
+		} catch (error) {
+			this.logger.error('CLOUDFLARE_AI_GATEWAY_ROUTE is invalid', error);
 			return;
 		}
 		const config: ThinkAgentConfig = {
@@ -228,6 +235,7 @@ export class ThinkCodingBehavior
 			model: {
 				modelName,
 				gatewayId,
+				...(dynamicRouteName ? { dynamicRouteName } : {}),
 				contextSize: aiModelConfig.contextSize,
 			},
 			systemPrompt: this.buildSystemPrompt(modelName),
@@ -254,6 +262,7 @@ export class ThinkCodingBehavior
 			`You are powered by the model named ${modelName}.`,
 			'<env>',
 			`  Platform: Cloudflare Workers (SpaceDO preview — no shell, no local filesystem)`,
+			'  Use cloudflare_stack_search to check current Cloudflare and supported framework documentation before implementing their APIs.',
 			`  Today's date: ${new Date().toDateString()}`,
 			'</env>',
 			'',
