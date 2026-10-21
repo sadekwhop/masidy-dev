@@ -14,11 +14,7 @@ import {
 } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import {
-	ExternalLink,
-	LoaderCircle,
-	RotateCcw,
-} from 'lucide-react';
+import { ExternalLink, LoaderCircle, RotateCcw, Zap } from 'lucide-react';
 import {
 	BookmarkSimpleIcon,
 	DotsThree,
@@ -56,7 +52,6 @@ import type { ChatMessage } from './utils/message-helpers';
 import { featureRegistry, useFeature } from '@/features';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
-import { startCloudflareConnect } from '@/lib/cloudflare-connect';
 import {
 	useApp,
 	useToggleAppFavorite,
@@ -92,7 +87,6 @@ import { queryKeys } from '@/lib/query-keys';
 import { ApiError } from '@/lib/api-client';
 import { capitalizeFirstLetter } from '@/lib/utils';
 import { usePageHeader } from '@/components/layout/header-context';
-import { CloudflareLogo } from '@/components/icons/logos';
 
 const isPhasicBlueprint = (
 	blueprint?: BlueprintType | null,
@@ -196,15 +190,18 @@ function ChatSession() {
 	}, []);
 
 	// Deploy gate popup (backend-reported Cloudflare connection failures)
-	const [showDeployGateDialog, setShowDeployGateDialog] = useState<React.ReactElement | null>(null);
-	const handleCloudflareDeployGate = useCallback((code: CloudflareDeploymentErrorCode) => {
-		const dialog = getDeployGateDialog(
-			code,
-			() => { void startCloudflareConnect(window.location.href); },
-			() => setShowDeployGateDialog(null),
-		);
-		if (dialog) setShowDeployGateDialog(dialog);
-	}, []);
+	const [showDeployGateDialog, setShowDeployGateDialog] =
+		useState<React.ReactElement | null>(null);
+	const handleCloudflareDeployGate = useCallback(
+		(code: CloudflareDeploymentErrorCode) => {
+			const dialog = getDeployGateDialog(
+				code,
+				() => setShowDeployGateDialog(null),
+			);
+			if (dialog) setShowDeployGateDialog(dialog);
+		},
+		[],
+	);
 
 	const {
 		messages,
@@ -352,10 +349,7 @@ function ChatSession() {
 	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
 	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 
-	// Deploy target for think apps: user-account deploys are gated behind the
-	// platform's ENABLE_USER_ACCOUNT_DEPLOY flag (surfaced via capabilities).
 	const { capabilities } = useFeature();
-	const userAccountDeployEnabled = capabilities?.userAccountDeploy ?? false;
 
 	const headerTitle = blueprint?.title || appTitle;
 	const showHeader = Boolean(
@@ -410,7 +404,13 @@ function ChatSession() {
 								<Button
 									variant="ghost"
 									className="h-8 shrink-0 px-2 text-xs text-text-tertiary hover:bg-kumo-elevated hover:text-text-primary"
-									onClick={() => window.open(cloudflareDeploymentUrl, '_blank', 'noopener,noreferrer')}
+									onClick={() =>
+										window.open(
+											cloudflareDeploymentUrl,
+											'_blank',
+											'noopener,noreferrer',
+										)
+									}
 								>
 									<ExternalLink className="size-3.5" />
 									View Live
@@ -420,20 +420,23 @@ function ChatSession() {
 								variant="secondary"
 								size="sm"
 								disabled={isDeploying || files.length === 0}
-								onClick={() => handleDeployToCloudflare(chatId || '', userAccountDeployEnabled ? 'user' : 'platform')}
+								onClick={() =>
+									handleDeployToCloudflare(
+										chatId || '',
+										'platform',
+									)
+								}
 							>
 								{isDeploying ? (
 									<LoaderCircle className="size-3.5 animate-spin" />
 								) : (
-									<CloudflareLogo className="size-3.5" />
+									<Zap className="size-3.5" />
 								)}
 								{isDeploying
-									? 'Deploying...'
+									? 'Publishing...'
 									: cloudflareDeploymentUrl
 										? 'Redeploy'
-										: userAccountDeployEnabled
-											? 'Deploy to My Account'
-											: 'Deploy'}
+										: 'Publish'}
 							</Button>
 						</>
 					)}
@@ -523,7 +526,6 @@ function ChatSession() {
 		isDeploying,
 		files,
 		handleDeployToCloudflare,
-		userAccountDeployEnabled,
 	]);
 
 	usePageHeader(headerContent);
@@ -996,9 +998,6 @@ function ChatSession() {
 			const limitCheck = checkCanSendPrompt(
 				limitsData,
 				limitsLoading,
-				() => {
-					void startCloudflareConnect(window.location.href);
-				},
 				() => setShowLimitDialog(null),
 			);
 
@@ -1121,7 +1120,10 @@ function ChatSession() {
 				<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
 					<motion.div
 						layout="position"
-						className={cn("flex-1 shrink-0 flex flex-col basis-0 relative z-10 h-full min-h-0", showMainView ? 'max-w-xl' : 'max-w-3xl')}
+						className={cn(
+							'flex-1 shrink-0 flex flex-col basis-0 relative z-10 h-full min-h-0',
+							showMainView ? 'max-w-xl' : 'max-w-3xl',
+						)}
 					>
 						<div
 							className={cn(
@@ -1257,75 +1259,73 @@ function ChatSession() {
 
 								{/* Deployment and Generation Controls - Only for phasic mode */}
 								{chatId && behaviorType === 'phasic' && (
-										<motion.div
-											ref={deploymentControlsRef}
-											initial={{ opacity: 0, y: 20 }}
-											animate={{ opacity: 1, y: 0 }}
-											transition={{
-												duration: 0.3,
-												delay: 0.2,
-											}}
-											className="px-4 mb-6"
-										>
-											<DeploymentControls
-												isPhase1Complete={
-													isPhase1Complete
-												}
-												isDeploying={isDeploying}
-												deploymentUrl={
-													cloudflareDeploymentUrl
-												}
-												instanceId={chatId || ''}
-												isRedeployReady={
-													isRedeployReady
-												}
-												deploymentError={
-													deploymentError
-												}
-												appId={app?.id || chatId}
-												appVisibility={app?.visibility}
-												isGenerating={
-													isGenerating ||
-													isGeneratingBlueprint
-												}
-												isPaused={isGenerationPaused}
-												onDeploy={(instanceId) => handleDeployToCloudflare(instanceId, 'platform')}
-												deploymentTarget="platform"
-												onStopGeneration={
-													handleStopGeneration
-												}
-												onResumeGeneration={
-													handleResumeGeneration
-												}
-												onVisibilityUpdate={(
-													newVisibility,
-												) => {
-													if (!app?.id) return;
+									<motion.div
+										ref={deploymentControlsRef}
+										initial={{ opacity: 0, y: 20 }}
+										animate={{ opacity: 1, y: 0 }}
+										transition={{
+											duration: 0.3,
+											delay: 0.2,
+										}}
+										className="px-4 mb-6"
+									>
+										<DeploymentControls
+											isPhase1Complete={isPhase1Complete}
+											isDeploying={isDeploying}
+											deploymentUrl={
+												cloudflareDeploymentUrl
+											}
+											instanceId={chatId || ''}
+											isRedeployReady={isRedeployReady}
+											deploymentError={deploymentError}
+											appId={app?.id || chatId}
+											appVisibility={app?.visibility}
+											isGenerating={
+												isGenerating ||
+												isGeneratingBlueprint
+											}
+											isPaused={isGenerationPaused}
+											onDeploy={(instanceId) =>
+												handleDeployToCloudflare(
+													instanceId,
+													'platform',
+												)
+											}
+											onStopGeneration={
+												handleStopGeneration
+											}
+											onResumeGeneration={
+												handleResumeGeneration
+											}
+											onVisibilityUpdate={(
+												newVisibility,
+											) => {
+												if (!app?.id) return;
 
-													queryClient.setQueryData<AppDetailsData>(
-														queryKeys.account.apps.detail(
-															app.id,
-															user?.id,
-														),
-														(prev) =>
-															prev
-																? {
-																		...prev,
-																		visibility:
-																			newVisibility,
-																	}
-																: prev,
-													);
-													void queryClient.invalidateQueries(
-														{
-															queryKey:
-																queryKeys.account.apps.all(),
-														},
-													);
-												}}
-											/>
-										</motion.div>
-									)}
+												queryClient.setQueryData<AppDetailsData>(
+													queryKeys.account.apps.detail(
+														app.id,
+														user?.id,
+													),
+													(prev) =>
+														prev
+															? {
+																	...prev,
+																	visibility:
+																		newVisibility,
+																}
+															: prev,
+												);
+												void queryClient.invalidateQueries(
+													{
+														queryKey:
+															queryKeys.account.apps.all(),
+													},
+												);
+											}}
+										/>
+									</motion.div>
+								)}
 
 								{otherMessages
 									.filter(
@@ -1378,9 +1378,6 @@ function ChatSession() {
 							websocket={websocket}
 							chatFormRef={chatFormRef}
 							limitsData={limitsData}
-							onConnectCloudflare={() => {
-								void startCloudflareConnect(window.location.href);
-							}}
 							aboveContent={
 								<ClarifyingQuestionsPopup
 									questions={clarifyingQuestions ?? []}
@@ -1484,10 +1481,6 @@ function ChatSession() {
 					) {
 						const limitCheckResult = getBackendLimitDialog(
 							limitsData,
-							() => {
-								setBackendErrorDialog({ isOpen: false });
-								window.location.href = '/settings';
-							},
 							() => setBackendErrorDialog({ isOpen: false }),
 						);
 

@@ -22,6 +22,7 @@ import {
 	readOwnerPreviewTokenFromQuery,
 	verifyOwnerPreviewToken,
 } from './utils/ownerPreviewToken';
+import { routeManagedAppRequest } from './services/published-apps/controller';
 
 // Durable Object and Service exports
 export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
@@ -158,6 +159,7 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 		logger.warn(`Dispatcher not available, cannot serve: ${hostname}`);
 		return new Response('This application is not currently available.', { status: 404 });
 	}
+	const dispatcher = env.DISPATCHER;
 
 	// Extract the app name (e.g., "xyz" from "xyz.build.cloudflare.dev").
 	// This subdomain equals the app's `deploymentId`.
@@ -198,8 +200,6 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 		}
 	}
 	// public apps, anonymous apps (userId === null), and verified owners fall through.
-
-	const dispatcher = env['DISPATCHER'];
 
 	try {
 		const worker = dispatcher.get(appName);
@@ -254,6 +254,9 @@ const worker = {
 		const url = new URL(request.url);
 		const { hostname, pathname } = url;
 
+		const managedAppResponse = await routeManagedAppRequest(request, env);
+		if (managedAppResponse) return managedAppResponse;
+
 		// 2. Security: Immediately reject any requests made via an IP address.
 		const ipRegex = /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 		if (ipRegex.test(hostname)) {
@@ -264,7 +267,9 @@ const worker = {
 
 		// Normalize hostnames for both local development (localhost) and production.
 		const isMainDomainRequest =
-			hostname === env.CUSTOM_DOMAIN || hostname === 'localhost';
+			hostname === env.CUSTOM_DOMAIN ||
+			hostname === `www.${env.CUSTOM_DOMAIN}` ||
+			hostname === 'localhost';
 		const isSubdomainRequest =
 			hostname.endsWith(`.${previewDomain}`) ||
 			(hostname.endsWith('.localhost') && hostname !== 'localhost');

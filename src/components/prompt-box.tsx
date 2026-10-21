@@ -52,7 +52,6 @@ export interface PromptBoxProps {
 
 	// CreditsBanner
 	limitsData?: UsageSummary | null;
-	onConnectCloudflare?: () => void;
 
 	// Layout
 	variant?: 'compact' | 'expanded';
@@ -91,7 +90,6 @@ export function PromptBox({
 	disabled = false,
 	submitDisabled = false,
 	limitsData,
-	onConnectCloudflare,
 	variant = 'compact',
 	leftActions,
 	rightActions,
@@ -156,7 +154,6 @@ export function PromptBox({
 				{aboveContent}
 				<CreditsBanner
 					limitsData={limitsData}
-					onConnectCloudflare={onConnectCloudflare}
 				>
 					<div className="min-h-10 rounded-xl transition-all duration-200 bg-bg-4 dark:bg-kumo-elevated border box-border">
 						<form ref={formRef} onSubmit={handleSubmit}>
@@ -225,7 +222,6 @@ export function PromptBox({
 	return (
 		<CreditsBanner
 			limitsData={limitsData}
-			onConnectCloudflare={onConnectCloudflare}
 			className={cn('w-full z-10', className)}
 			radius={borderRadius}
 		>

@@ -43,7 +43,6 @@ interface ChatInputProps {
 
 	// Usage limits
 	limitsData?: UsageSummary | null;
-	onConnectCloudflare?: () => void;
 
 	// Content tucked behind the top of the input box
 	aboveContent?: ReactNode;
@@ -66,7 +65,6 @@ export function ChatInput({
 	websocket,
 	chatFormRef,
 	limitsData,
-	onConnectCloudflare,
 	aboveContent,
 }: ChatInputProps) {
 	const handleStopGeneration = () => {
@@ -110,7 +108,6 @@ export function ChatInput({
 			dragHandlers={chatDragHandlers}
 			disabled={isChatDisabled}
 			limitsData={limitsData}
-			onConnectCloudflare={onConnectCloudflare}
 			variant="compact"
 			rightActions={stopButton}
 			aboveContent={aboveContent}

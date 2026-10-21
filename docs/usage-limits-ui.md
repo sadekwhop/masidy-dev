@@ -132,7 +132,7 @@ Unlike the pre-flight limit popups, this one is **backend-error-triggered**: a u
 | `cloudflare_not_configured` | Multiple accounts connected and none selected (a sole connected account is used automatically — deploying needs no AI Gateway) | **Select a Cloudflare account** | Navigate to `/settings?config_needed=true` |
 | _(absent)_ | Any other deploy failure | None (toast only) | — |
 
-Think deploy targets are gated by the worker flag `ENABLE_USER_ACCOUNT_DEPLOY` (surfaced to the frontend as `userAccountDeploy` on `GET /api/capabilities`): when on, the think deploy button sends `target: 'user'` ("Deploy to My Account"); when off it sends `target: 'platform'` ("Deploy") and the backend publishes to the platform dispatch namespace with platform credentials — no Cloudflare connection required, so the popup never fires.
+Think deploy targets are gated by the worker flag `ENABLE_USER_ACCOUNT_DEPLOY` (surfaced to the frontend as `userAccountDeploy` on `GET /api/capabilities`): when on, the think deploy button sends `target: 'user'` ("Deploy to My Account"); when off, it publishes the release snapshot through Masidy's `LOADER` binding and serves it at the configured managed-app domain. Managed publishing does not require users to connect Cloudflare.
 
 ## Backend interactions
 

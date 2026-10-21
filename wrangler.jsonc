@@ -82,13 +82,6 @@
 		"binding": "BROWSER",
 		"remote": true
 	},
-    "dispatch_namespaces": [
-        {
-            "binding": "DISPATCHER",
-            "namespace": "vibesdk-default-namespace",
-            "remote": true
-        }
-    ],
     "artifacts": [
         {
             "binding": "ARTIFACTS",
@@ -209,6 +202,10 @@
             "custom_domain": true
         },
         {
+            "pattern": "*.masidy.dev/*",
+            "zone_name": "masidy.dev"
+        },
+        {
             "pattern": "*build-preview.cloudflare.dev/*",
             "custom_domain": false,
             "zone_id": "db01fac4261b2604aacad8410443a3e2"
@@ -216,7 +213,6 @@
     ],
 	"vars": {
         "TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
-        "DISPATCH_NAMESPACE": "vibesdk-default-namespace",
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
         // Cloudflare Artifacts namespace for the read-only Repo viewer proxy.
         // Must match the `artifacts` binding namespace above.

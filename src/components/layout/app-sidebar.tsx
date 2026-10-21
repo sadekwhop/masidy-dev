@@ -11,23 +11,14 @@ import {
 } from '@phosphor-icons/react';
 import { isValid } from 'date-fns';
 import { Link, useLocation, useNavigate } from 'react-router';
-import {
-	Button,
-	CloudflareLogo,
-	InputGroup,
-	Sidebar,
-	cn,
-	useSidebar,
-} from '@cloudflare/kumo';
+import { Button, InputGroup, Sidebar, cn, useSidebar } from '@cloudflare/kumo';
 import { useAuth } from '@/contexts/auth-context';
 import { MasidyLogo } from '@/components/masidy-logo';
 import { useApps, useFavoriteApps, useRecentApps } from '@/hooks/use-apps';
 import { AppActionsDropdown } from '@/components/shared/AppActionsDropdown';
 import { OrangeButton } from '@/components/shared/OrangeButton';
 import { AuthButton } from '@/components/auth/auth-button';
-import { useUsageLimitsBadgeState } from '@/components/usage-limits-badge';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { startCloudflareConnect } from '@/lib/cloudflare-connect';
 
 interface App {
 	id: string;
@@ -154,28 +145,6 @@ export function AppSidebar() {
 	const [searchQuery, setSearchQuery] = React.useState('');
 	const { state } = useSidebar();
 	const isCollapsed = state === 'collapsed';
-	const usageLimits = useUsageLimitsBadgeState();
-	// Show only when action is needed: not connected, or token without gateway.
-	// Hide when configured even if cloudflareCredits is still null.
-	const showCloudflareCta =
-		Boolean(user) &&
-		!usageLimits.hidden &&
-		!usageLimits.loading &&
-		(!usageLimits.hasUserToken || usageLimits.needsConfiguration);
-	const cloudflareCtaLabel = usageLimits.needsConfiguration
-		? 'Configure AI Gateway'
-		: 'Connect Cloudflare';
-
-	const handleCloudflareCta = () => {
-		if (usageLimits.needsConfiguration) {
-			navigate('/settings');
-			return;
-		}
-
-		void startCloudflareConnect(
-			window.location.pathname + window.location.search,
-		);
-	};
 
 	const { apps: recentApps, moreAvailable } = useRecentApps();
 	const { apps: favoriteApps, loading: favoriteAppsLoading } =
@@ -584,32 +553,6 @@ export function AppSidebar() {
 
 			<Sidebar.Footer className="h-auto p-3">
 				<div className="flex w-full min-w-0 flex-col gap-2">
-					{showCloudflareCta && (
-						<OrangeButton
-							onClick={handleCloudflareCta}
-							aria-label={cloudflareCtaLabel}
-							title={cloudflareCtaLabel}
-							shape={isCollapsed ? 'square' : 'base'}
-							className={cn(
-								isCollapsed
-									? 'size-8! shrink-0 self-center'
-									: 'h-8! w-full justify-start gap-2 text-sm',
-							)}
-							icon={
-								<CloudflareLogo
-									variant="glyph"
-									color="white"
-									className="size-6 shrink-0"
-								/>
-							}
-						>
-							{!isCollapsed ? (
-								<span className="truncate text-xs">
-									{cloudflareCtaLabel}
-								</span>
-							) : null}
-						</OrangeButton>
-					)}
 					<div
 						className={cn(
 							'flex min-w-0 w-full items-center gap-2',

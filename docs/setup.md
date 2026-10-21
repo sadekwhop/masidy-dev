@@ -21,8 +21,7 @@ Before getting started, make sure you have:
 
 ### For Production Features
 - **Workers Paid Plan** (for remote Cloudflare resources)
-- **Workers for Platforms** subscription (for app deployment features)
-- **Advanced Certificate Manager** (if using first-level subdomains)
+- **Proxied wildcard DNS** for `*.<your-domain>` (for Masidy-hosted apps)
 
 ## Quick Start
 
@@ -312,11 +311,10 @@ Visit your app at `http://localhost:5173`
 - Check the branch deployment and signed preview URL.
 - Use `bun run dev:browser` when local browser-console inspection is needed.
 
-**Deploy to Cloudflare Button Issues (Chat Interface)**:
-- **"Deploy button not working locally"**: Chat interface deploy button requires custom domain, initial deployment, and remote dispatch bindings
-- **"Dispatch namespace not found"**: Deploy your VibeSDK project to Cloudflare at least once first
-- **"Deploy fails with authentication error"**: Ensure your custom domain is properly configured and deployed
-- **Note**: This refers to deploying generated apps from the chat interface, not GitHub repository deployments
+**Managed publishing issues (Chat Interface)**:
+- Confirm the `*.<your-domain>` DNS record is proxied and the wildcard Worker route is active.
+- Confirm the app is completed and public, or use the owner's signed deployment link for a private app.
+- Check the Worker logs for Dynamic Worker Loader or Durable Object Facet failures.
 
 **Legacy Corporate Container Setup**:
 The following certificate setup applies only when intentionally running legacy Docker-based tooling:
@@ -409,7 +407,7 @@ The VibeSDK setup script provides a comprehensive, intelligent configuration exp
 - **User-friendly defaults** - Y/n prompts with clear default indicators
 
 ### **What Gets Configured:**
-- Cloudflare resources (KV, D1, R2, AI Gateway, dispatch namespaces)
+- Cloudflare resources (KV, D1, R2, and AI Gateway)
 - Environment variables (.dev.vars and .prod.vars)
 - Worker configuration (wrangler.jsonc, worker-configuration.d.ts)
 - Database setup and migrations
@@ -426,24 +424,20 @@ For any issues during setup, check the troubleshooting section above or refer to
 
 `USE_TUNNEL_FOR_PREVIEW`, `SandboxDockerfile`, and container instance settings belong to the retired sandbox preview path. Current generated-app previews run as Dynamic Workers loaded by SpaceDO. Do not troubleshoot the current preview path as a Docker or cloudflared tunnel unless you are intentionally running legacy tooling.
 
-### **"Deploy to Cloudflare" Button Limitations (Chat Interface)**
+### **Masidy-hosted app publishing**
 
-The "Deploy to Cloudflare" button in the chat interface (for generated apps) has specific requirements for local development:
+By default, publishing stores a release snapshot in the app's SpaceDO and serves it through the Worker's `LOADER` binding as a Dynamic Worker. Each app is isolated in its own SpaceDO and Durable Object Facet. This path does not upload a Worker script per project and does not require a Workers for Platforms dispatch namespace.
 
-> **Note**: This refers to the deployment button within the VibeSDK platform's chat interface, not the GitHub repository deploy button.
+Configure all of the following before enabling publishing:
 
-**Requirements**:
-1. **Custom domain** must be properly configured during setup
-2. **Initial deployment** - Project must be deployed at least once to your Cloudflare account
-3. **Remote dispatch bindings** - `wrangler.jsonc` must have remote dispatch namespace enabled
-4. **Dispatch worker** - A dispatch worker must be running in your account
+- Add a proxied wildcard DNS record for `*.masidy.dev` pointing to `masidy.dev` (a proxied CNAME is suitable).
+- Configure the Worker route `*.masidy.dev/*` for the `masidy.dev` zone.
+- Use one-label app hostnames such as `my-app-123456789abc.masidy.dev`; Cloudflare Universal SSL covers these first-level subdomains.
+- Keep `LOADER` and the `SPACE_DO` Durable Object binding enabled.
 
-**Why These Requirements?**
-- The deploy feature uses Cloudflare's dispatch namespace system
-- Dispatch requires a running worker in your account to handle deployment requests
-- Local-only development isn't yet supported for this in vibesdk
+Each app is limited to a 5 MiB serialized modules-and-assets bundle and 10,000 requests per UTC day. A second 10,000-request UTC-day cap is shared across all Masidy-hosted apps. Requests beyond either cap receive HTTP 429 until the next UTC day. These caps do not limit model-provider charges or guarantee that account-wide Workers CPU and other usage remain within the $5 base allowance.
 
-**Current Status**: Making "Deploy to Cloudflare" work completely in local-only mode is not yet implemented.
+`ENABLE_USER_ACCOUNT_DEPLOY="true"` opts into the separate legacy flow that deploys to a user's own Cloudflare account. Do not enable it for the managed Masidy publishing model.
 
 ### **Dynamic Worker preview troubleshooting**
 

@@ -16,7 +16,7 @@ import { createLogger } from '../../../logger';
 import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { RateLimitExceededError } from 'shared/types/errors';
 import { extractRequestMetadata } from '../../../utils/authUtils';
-import { buildUserWorkerUrl, buildGitCloneUrl } from 'worker/utils/urls';
+import { buildManagedAppUrl, buildGitCloneUrl } from 'worker/utils/urls';
 import { JWTUtils } from '../../../utils/jwtUtils';
 import {
     OWNER_PREVIEW_QUERY_PARAM,
@@ -96,7 +96,7 @@ export class AppViewController extends BaseController {
                 this.logger.warn('Could not fetch agent state, using stored files:', agentError);
             }
 
-            const cloudflareUrl = appResult.deploymentId ? buildUserWorkerUrl(env, appResult.deploymentId) : '';
+            const cloudflareUrl = appResult.deploymentId ? buildManagedAppUrl(env, appResult.deploymentId) : '';
 
             // Only the owner may see operational fields (userId, deploymentId,
             // private-repo GitHub URL). The prompt + generated code remain
@@ -278,7 +278,7 @@ export class AppViewController extends BaseController {
                 deploymentId: app.deploymentId,
             });
 
-            const base = buildUserWorkerUrl(env, app.deploymentId);
+            const base = buildManagedAppUrl(env, app.deploymentId);
             const previewUrl = `${base}/?${OWNER_PREVIEW_QUERY_PARAM}=${encodeURIComponent(token)}`;
 
             const responseData: PreviewTokenData = {

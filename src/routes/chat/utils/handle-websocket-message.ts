@@ -925,7 +925,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setDeploymentError('');
                 setIsRedeployReady(false);
 
-                sendMessage(createAIMessage('cloudflare_deployment_completed', `Your project has been permanently deployed to Cloudflare Workers: ${message.deploymentUrl}`));
+                sendMessage(createAIMessage('cloudflare_deployment_completed', `Your project is live on Masidy: ${message.deploymentUrl}`));
 
                 onDebugMessage?.('info',
                     'Deployment Completed - Redeploy Reset',

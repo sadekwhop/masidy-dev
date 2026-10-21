@@ -90,10 +90,29 @@ export function resolvePreviewHost(env: Env, wsOrigin: string | undefined): stri
     return fromOrigin ?? 'localhost';
 }
 
-export function buildUserWorkerUrl(env: Env, deploymentId: string): string {
-    const domain = getPreviewDomain(env);
-    const protocol = getProtocolForHost(domain);
-    return `${protocol}://${deploymentId}.${domain}`;
+export function getManagedAppDomain(env: Env): string {
+    return env.CUSTOM_DOMAIN
+        .toLowerCase()
+        .replace(/\.$/, '');
+}
+
+export function buildManagedAppUrl(env: Env, deploymentId: string): string {
+    const domain = getManagedAppDomain(env);
+    return `${getProtocolForHost(domain)}://${deploymentId}.${domain}`;
+}
+
+export function buildManagedAppDeploymentId(appName: string, appId: string): string {
+    const name = appName
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40)
+        .replace(/-+$/g, '') || 'app';
+    const suffix = appId.toLowerCase().replace(/[^a-z0-9]/g, '').slice(-12);
+    if (!suffix) {
+        throw new Error('App ID must contain at least one letter or number');
+    }
+    return `${name}-${suffix}`;
 }
 
 /**

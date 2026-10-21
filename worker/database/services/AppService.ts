@@ -582,7 +582,7 @@ export class AppService extends BaseService {
 
     /**
      * Resolve the owning app for a deployed worker by its deployment id
-     * (the subdomain used by the dispatch namespace equals `deploymentId`).
+     * (the managed app URL's hostname equals `deploymentId`).
      *
      * Reads from the PRIMARY DB (not a read replica) with NO caching so that a
      * just-toggled `visibility` is observed on the very next dispatch request
@@ -591,12 +591,18 @@ export class AppService extends BaseService {
      */
     async getAppOwnershipByDeploymentId(
         deploymentId: string
-    ): Promise<{ id: string; userId: string | null; visibility: 'private' | 'public' } | null> {
+    ): Promise<{
+        id: string;
+        userId: string | null;
+        visibility: 'private' | 'public';
+        status: 'generating' | 'completed';
+    } | null> {
         const row = await this.database
             .select({
                 id: schema.apps.id,
                 userId: schema.apps.userId,
                 visibility: schema.apps.visibility,
+                status: schema.apps.status,
             })
             .from(schema.apps)
             .where(eq(schema.apps.deploymentId, deploymentId))

@@ -82,10 +82,10 @@ The fastest way to deploy is the Deploy to Cloudflare flow:
 You will need:
 
 - A Cloudflare account with the required Workers features enabled.
-- A Workers Paid plan and Workers for Platforms access for production app previews.
+- A Workers Paid plan for Dynamic Worker previews and Masidy-hosted apps.
 - A Cloudflare API token with access to the resources created by setup.
 - Credentials for at least one supported model provider, unless you use provider keys stored in AI Gateway.
-- A custom domain for production, including wildcard DNS and Advanced Certificate Manager when required by your subdomain layout.
+- A custom domain for production. Masidy-hosted apps use `<app-name>.<your-domain>` and require a proxied wildcard DNS record and Worker route.
 
 Authentication providers, model providers, and export integrations are optional and configuration-dependent. See the [complete setup guide](docs/setup.md) for current permissions, DNS, AI Gateway, provider, OAuth, and production configuration.
 
@@ -139,7 +139,7 @@ Feature settings are dashboard-managed rather than committed in `wrangler.jsonc`
 
 ## Troubleshooting
 
-- **Preview does not resolve**: Confirm the wildcard DNS record is proxied, allow time for DNS propagation, and verify any required Advanced Certificate Manager configuration.
+- **Published app does not resolve**: Confirm the `*` DNS record is proxied, allow time for DNS propagation, and verify the wildcard Worker route is active.
 - **AI Gateway authentication fails**: Confirm the gateway and token are configured, the token has Run permission, and the selected provider has valid credentials or stored keys.
 - **Database migrations fail**: Check D1 access and API-token permissions, then retry after newly provisioned resources become available.
 - **Required variables are missing**: Verify `JWT_SECRET`, Cloudflare account credentials, AI Gateway settings, and credentials for every enabled provider or integration.

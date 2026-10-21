@@ -120,25 +120,12 @@ async function deployBranch(
   const {
     commitHash,
     mainModule,
-    modules: serializedModules,
     assets: serializedAssets,
-    assetConfig,
     compatibilityDate: compatDate,
   } = bundle
 
   const now = Date.now()
-  ctx.sql.exec(
-    `INSERT OR REPLACE INTO deployments
-     (branch, commit_hash, main_module, modules, assets, asset_config, deployed_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    branch,
-    commitHash,
-    mainModule,
-    JSON.stringify(serializedModules),
-    JSON.stringify(serializedAssets),
-    assetConfig ? JSON.stringify(assetConfig) : "{}",
-    now
-  )
+  saveDeploymentBundle(ctx.sql, bundle, branch, now)
 
   return jsonResponse({
     branch,
@@ -148,6 +135,26 @@ async function deployBranch(
     compatibility_date: compatDate,
     deployed_at: new Date(now).toISOString(),
   })
+}
+
+export function saveDeploymentBundle(
+  sql: SqlStorage,
+  bundle: BranchDeploymentBundle,
+  deploymentKey: string = bundle.branch,
+  deployedAt: number = Date.now(),
+): void {
+  sql.exec(
+    `INSERT OR REPLACE INTO deployments
+     (branch, commit_hash, main_module, modules, assets, asset_config, deployed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    deploymentKey,
+    bundle.commitHash,
+    bundle.mainModule,
+    JSON.stringify(bundle.modules),
+    JSON.stringify(bundle.assets),
+    bundle.assetConfig ? JSON.stringify(bundle.assetConfig) : "{}",
+    deployedAt,
+  )
 }
 
 export async function buildBranchDeployment(

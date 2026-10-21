@@ -1,6 +1,14 @@
 import { useRef, useEffect, useState } from 'react';
 import { Button } from '../../../components/primitives/button';
-import { Loader, ExternalLink, Zap, Check, Globe, Lock, Share2 } from 'lucide-react';
+import {
+	Loader,
+	ExternalLink,
+	Zap,
+	Check,
+	Globe,
+	Lock,
+	Share2,
+} from 'lucide-react';
 import { cn } from '@cloudflare/kumo';
 import { apiClient } from '../../../lib/api-client';
 import { toast } from 'sonner';
@@ -28,7 +36,6 @@ interface DeploymentControlsProps {
 	onStopGeneration: () => void;
 	onResumeGeneration: () => void;
 	onVisibilityUpdate?: (newVisibility: 'public' | 'private') => void;
-	deploymentTarget?: 'platform' | 'user';
 }
 
 // Deployment state enum for better state management
@@ -38,7 +45,7 @@ enum DeploymentState {
 	DEPLOYING = 'deploying',
 	DEPLOYED = 'deployed',
 	REDEPLOYING = 'redeploying',
-	ERROR = 'error'
+	ERROR = 'error',
 }
 
 export function DeploymentControls({
@@ -52,7 +59,6 @@ export function DeploymentControls({
 	appVisibility = 'private',
 	onDeploy,
 	onVisibilityUpdate,
-	deploymentTarget = 'platform',
 }: DeploymentControlsProps) {
 	const [isDeployButtonClicked, setIsDeployButtonClicked] = useState(false);
 	const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
@@ -100,10 +106,6 @@ export function DeploymentControls({
 	};
 
 	const currentState = getCurrentDeploymentState();
-	const destination = deploymentTarget === 'user'
-		? 'your Cloudflare account'
-		: 'Cloudflare Workers for Platforms';
-
 	const handleDeploy = () => {
 		setIsDeployButtonClicked(true);
 
@@ -111,7 +113,7 @@ export function DeploymentControls({
 		if (deploymentRef.current) {
 			deploymentRef.current.scrollIntoView({
 				behavior: 'smooth',
-				block: 'center'
+				block: 'center',
 			});
 		}
 
@@ -122,7 +124,7 @@ export function DeploymentControls({
 		if (!deploymentUrl) return;
 
 		// Public apps (or missing appId): open the deployed URL directly.
-		if (deploymentTarget === 'user' || localVisibility !== 'private' || !appId) {
+		if (localVisibility !== 'private' || !appId) {
 			window.open(deploymentUrl, '_blank', 'noopener,noreferrer');
 			return;
 		}
@@ -132,7 +134,11 @@ export function DeploymentControls({
 		try {
 			const response = await apiClient.generatePreviewToken(appId);
 			if (response.success && response.data) {
-				window.open(response.data.previewUrl, '_blank', 'noopener,noreferrer');
+				window.open(
+					response.data.previewUrl,
+					'_blank',
+					'noopener,noreferrer',
+				);
 				return;
 			}
 		} catch (error) {
@@ -151,21 +157,29 @@ export function DeploymentControls({
 
 		try {
 			setIsUpdatingVisibility(true);
-			const newVisibility = localVisibility === 'private' ? 'public' : 'private';
+			const newVisibility =
+				localVisibility === 'private' ? 'public' : 'private';
 
-			const response = await apiClient.updateAppVisibility(appId, newVisibility);
+			const response = await apiClient.updateAppVisibility(
+				appId,
+				newVisibility,
+			);
 
 			if (response.success && response.data) {
 				setLocalVisibility(newVisibility);
 				onVisibilityUpdate?.(newVisibility);
 
 				if (newVisibility === 'public') {
-					toast.success('🎉 Your app is now public! Share the link with anyone.');
+					toast.success(
+						'🎉 Your app is now public! Share the link with anyone.',
+					);
 				} else {
 					toast.success('App is now private');
 				}
 			} else {
-				throw new Error(response.error?.message || 'Failed to update visibility');
+				throw new Error(
+					response.error?.message || 'Failed to update visibility',
+				);
 			}
 		} catch (error) {
 			console.error('Error updating app visibility:', error);
@@ -180,76 +194,107 @@ export function DeploymentControls({
 		switch (state) {
 			case DeploymentState.WAITING_PHASE1:
 				return {
-					panelClass: "bg-kumo-base/30 dark:bg-kumo-base/20 dark:border-border-primary/40",
-					iconClass: "bg-kumo-base-foreground/40 dark:bg-kumo-base-foreground/30 border-muted-foreground/40 dark:border-muted-foreground/30",
+					panelClass:
+						'bg-kumo-base/30 dark:bg-kumo-base/20 dark:border-border-primary/40',
+					iconClass:
+						'bg-kumo-base-foreground/40 dark:bg-kumo-base-foreground/30 border-muted-foreground/40 dark:border-muted-foreground/30',
 					icon: null,
-					titleColor: "text-text-tertiary dark:text-text-tertiary",
-					subtitleColor: "text-text-tertiary/80 dark:text-text-tertiary/70",
-					title: "Deploy to Cloudflare",
-					subtitle: deploymentTarget === 'user'
-						? "Deploy will be enabled after the app has files"
-						: "Deploy will be enabled after Phase 1 is implemented",
+					titleColor: 'text-text-tertiary dark:text-text-tertiary',
+					subtitleColor:
+						'text-text-tertiary/80 dark:text-text-tertiary/70',
+					title: 'Preparing your app',
+					subtitle: 'Deploy will be enabled after Phase 1 is implemented',
 					buttonDisabled: true,
-					buttonVariant: "secondary" as const,
-					buttonClass: "bg-kumo-base dark:bg-kumo-base text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed"
+					buttonVariant: 'secondary' as const,
+					buttonClass:
+						'bg-kumo-base dark:bg-kumo-base text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed',
 				};
 
 			case DeploymentState.READY_TO_DEPLOY:
 				return {
-					panelClass: "bg-brand/5 dark:bg-brand/10 border-brand/20 dark:border-brand/20",
-					iconClass: "bg-brand border-brand",
+					panelClass:
+						'bg-brand/5 dark:bg-brand/10 border-brand/20 dark:border-brand/20',
+					iconClass: 'bg-brand border-brand',
 					icon: <Zap className="w-2.5 h-2.5 text-white" />,
-					titleColor: "text-text-primary dark:text-text-primary",
-					subtitleColor: "text-text-tertiary dark:text-text-tertiary",
-					title: "Ready to Deploy",
-					subtitle: `Publishes a standalone Worker to ${destination}`,
+					titleColor: 'text-text-primary dark:text-text-primary',
+					subtitleColor: 'text-text-tertiary dark:text-text-tertiary',
+					title: 'Ready to Deploy',
+					subtitle: 'Deploy your application when it is ready.',
 					buttonDisabled: false,
-					buttonVariant: "primary" as const,
-					buttonClass: "bg-brand text-white border-orange-500 dark:border-orange-600 hover:scale-105"
+					buttonVariant: 'primary' as const,
+					buttonClass:
+						'bg-brand text-white border-orange-500 dark:border-orange-600 hover:scale-105',
 				};
 
 			case DeploymentState.DEPLOYING:
 				return {
-					panelClass: "bg-blue-50/40 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-800/30 shadow-sm dark:shadow-blue-900/20",
-					iconClass: "bg-blue-500 dark:bg-blue-600 border-blue-500 dark:border-blue-600 animate-pulse",
-					icon: <Loader className="w-2.5 h-2.5 text-white animate-spin" />,
-					titleColor: "text-blue-900 dark:text-blue-100",
-					subtitleColor: "text-blue-600 dark:text-blue-300",
-					title: "Deploying to Cloudflare",
-					subtitle: `Publishing your application to ${destination}...`,
+					panelClass:
+						'bg-blue-50/40 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-800/30 shadow-sm dark:shadow-blue-900/20',
+					iconClass:
+						'bg-blue-500 dark:bg-blue-600 border-blue-500 dark:border-blue-600 animate-pulse',
+					icon: (
+						<Loader className="w-2.5 h-2.5 text-white animate-spin" />
+					),
+					titleColor: 'text-blue-900 dark:text-blue-100',
+					subtitleColor: 'text-blue-600 dark:text-blue-300',
+					title: 'Deploying',
+					subtitle: 'Publishing your application...',
 					buttonDisabled: true,
-					buttonVariant: "primary" as const,
-					buttonClass: "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 scale-105 shadow-lg dark:shadow-blue-900/50"
+					buttonVariant: 'primary' as const,
+					buttonClass:
+						'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 scale-105 shadow-lg dark:shadow-blue-900/50',
 				};
 
 			case DeploymentState.REDEPLOYING:
 				return {
-					panelClass: "bg-blue-50/40 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-800/30 shadow-sm dark:shadow-blue-900/20",
-					iconClass: "bg-blue-500 dark:bg-blue-600 border-blue-500 dark:border-blue-600 animate-pulse",
-					icon: <Loader className="w-2.5 h-2.5 text-white animate-spin" />,
-					titleColor: "text-blue-900 dark:text-blue-100",
-					subtitleColor: "text-blue-600 dark:text-blue-300",
-					title: "Redeploying to Cloudflare",
-					subtitle: `Updating your application in ${destination}...`,
+					panelClass:
+						'bg-blue-50/40 dark:bg-blue-950/20 border-blue-200/60 dark:border-blue-800/30 shadow-sm dark:shadow-blue-900/20',
+					iconClass:
+						'bg-blue-500 dark:bg-blue-600 border-blue-500 dark:border-blue-600 animate-pulse',
+					icon: (
+						<Loader className="w-2.5 h-2.5 text-white animate-spin" />
+					),
+					titleColor: 'text-blue-900 dark:text-blue-100',
+					subtitleColor: 'text-blue-600 dark:text-blue-300',
+					title: 'Redeploying',
+					subtitle: 'Updating your application...',
 					buttonDisabled: true,
-					buttonVariant: "primary" as const,
-					buttonClass: "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 scale-105 shadow-lg dark:shadow-blue-900/50"
+					buttonVariant: 'primary' as const,
+					buttonClass:
+						'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 scale-105 shadow-lg dark:shadow-blue-900/50',
 				};
 
 			case DeploymentState.ERROR:
 				return {
-					panelClass: "bg-red-50/40 dark:bg-red-950/20 border-red-200/60 dark:border-red-800/30 shadow-sm dark:shadow-red-900/20",
-					iconClass: "bg-red-500 dark:bg-red-600 border-red-500 dark:border-red-600",
-					icon: <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>,
-					titleColor: "text-red-900 dark:text-red-100",
-					subtitleColor: "text-red-600 dark:text-red-300",
-					title: "❌ Deployment Failed",
-					subtitle: "Error in deployment, please try again",
+					panelClass:
+						'bg-red-50/40 dark:bg-red-950/20 border-red-200/60 dark:border-red-800/30 shadow-sm dark:shadow-red-900/20',
+					iconClass:
+						'bg-red-500 dark:bg-red-600 border-red-500 dark:border-red-600',
+					icon: (
+						<svg
+							className="w-2.5 h-2.5 text-white"
+							fill="none"
+							stroke="currentColor"
+							viewBox="0 0 24 24"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<path
+								strokeLinecap="round"
+								strokeLinejoin="round"
+								strokeWidth="2"
+								d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+							></path>
+						</svg>
+					),
+					titleColor: 'text-red-900 dark:text-red-100',
+					subtitleColor: 'text-red-600 dark:text-red-300',
+					title: '❌ Deployment Failed',
+					subtitle: 'Error in deployment, please try again',
 					buttonDisabled: !isPhase1Complete,
-					buttonVariant: "primary" as const,
+					buttonVariant: 'primary' as const,
 					buttonClass: isPhase1Complete
-						? "bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 text-white border-orange-500 dark:border-orange-600 hover:scale-105"
-						: "bg-kumo-base dark:bg-kumo-base text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed"
+						? 'bg-orange-500 hover:bg-orange-600 dark:bg-orange-600 dark:hover:bg-orange-700 text-white border-orange-500 dark:border-orange-600 hover:scale-105'
+						: 'bg-kumo-base dark:bg-kumo-base text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed',
 				};
 
 			default:
@@ -258,7 +303,9 @@ export function DeploymentControls({
 	};
 
 	const stateConfig = getStateConfig(currentState);
-	const isCurrentlyDeploying = currentState === DeploymentState.DEPLOYING || currentState === DeploymentState.REDEPLOYING;
+	const isCurrentlyDeploying =
+		currentState === DeploymentState.DEPLOYING ||
+		currentState === DeploymentState.REDEPLOYING;
 
 	return (
 		<div className="space-y-3 deployment-controls">
@@ -267,31 +314,37 @@ export function DeploymentControls({
 				<div
 					ref={deploymentRef}
 					className={cn(
-						"border rounded-lg p-3 transition-all duration-500 mt-2",
-						stateConfig.panelClass
+						'border rounded-lg p-3 transition-all duration-500 mt-2',
+						stateConfig.panelClass,
 					)}
 				>
 					<div className="flex items-center gap-3">
 						{/* Enhanced Status Icon with deployment state */}
-						<div className={cn(
-							"flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-500",
-							stateConfig.iconClass
-						)}>
+						<div
+							className={cn(
+								'flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-500',
+								stateConfig.iconClass,
+							)}
+						>
 							{stateConfig.icon}
 						</div>
 
 						{/* Enhanced Deployment Section Content */}
 						<div className="flex-1">
-							<div className={cn(
-								"text-sm font-medium transition-colors duration-300",
-								stateConfig.titleColor
-							)}>
+							<div
+								className={cn(
+									'text-sm font-medium transition-colors duration-300',
+									stateConfig.titleColor,
+								)}
+							>
 								{stateConfig.title}
 							</div>
-							<div className={cn(
-								"text-xs mt-0.5 transition-colors duration-300",
-								stateConfig.subtitleColor
-							)}>
+							<div
+								className={cn(
+									'text-xs mt-0.5 transition-colors duration-300',
+									stateConfig.subtitleColor,
+								)}
+							>
 								{stateConfig.subtitle}
 							</div>
 						</div>
@@ -299,21 +352,28 @@ export function DeploymentControls({
 						{/* Enhanced Deploy Button - Always visible, state-aware */}
 						<Button
 							onClick={handleDeploy}
-							disabled={stateConfig.buttonDisabled || isCurrentlyDeploying || isDeployButtonClicked}
+							disabled={
+								stateConfig.buttonDisabled ||
+								isCurrentlyDeploying ||
+								isDeployButtonClicked
+							}
 							className={cn(
-								"h-8 px-4 text-sm font-medium transition-all duration-300 transform",
-								stateConfig.buttonClass
+								'h-8 px-4 text-sm font-medium transition-all duration-300 transform',
+								stateConfig.buttonClass,
 							)}
 						>
 							{isCurrentlyDeploying ? (
 								<>
 									<Loader className="w-4 h-4 mr-2 animate-spin" />
-									{currentState === DeploymentState.REDEPLOYING ? 'Redeploying...' : 'Deploying...'}
+									{currentState ===
+									DeploymentState.REDEPLOYING
+										? 'Redeploying...'
+										: 'Deploying...'}
 								</>
 							) : (
 								<>
 									<Zap className="w-4 h-4 mr-2" />
-									{deploymentTarget === 'user' ? 'Deploy to My Account' : 'Deploy to Cloudflare'}
+									Deploy
 								</>
 							)}
 						</Button>
@@ -339,20 +399,24 @@ export function DeploymentControls({
 								🎉 Successfully Deployed!
 							</div>
 							<div className="text-xs text-green-700 dark:text-green-300 mt-0.5">
-								Your application is now live in {destination}
+								Your application is now live.
 							</div>
 						</div>
 					</div>
 
 					{/* Elegant URL Display */}
 					<div className="bg-kumo-base/60 dark:bg-bg-4/60 border border-green-200/40 dark:border-green-800/20 rounded-md p-3 mb-3">
-						<div className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">Live URL:</div>
+						<div className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">
+							Live URL:
+						</div>
 						<div className="flex items-center gap-2">
 							<code className="flex-1 text-sm font-mono text-green-800 dark:text-green-200 bg-green-50/50 dark:bg-green-950/30 px-2 py-1 rounded text-ellipsis overflow-hidden">
 								{deploymentUrl}
 							</code>
 							<Button
-								onClick={() => deploymentUrl && copyUrl(deploymentUrl)}
+								onClick={() =>
+									deploymentUrl && copyUrl(deploymentUrl)
+								}
 								variant="secondary"
 								className="h-7 px-2 text-xs bg-kumo-base dark:bg-bg-4 border border-green-300 dark:border-green-300/50 text-green-700 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950 hover:border-green-400 transition-all flex-shrink-0"
 							>
@@ -362,7 +426,7 @@ export function DeploymentControls({
 					</div>
 
 					{/* Shareable Link - Only shown when app is public */}
-					{deploymentTarget === 'platform' && localVisibility === 'public' && appId && (
+					{localVisibility === 'public' && appId && (
 						<div className="bg-brand/5 border border-brand/20 rounded-md p-3 mb-3">
 							<div className="text-xs text-kumo-brand font-medium mb-1 flex items-center gap-1">
 								<Share2 className="w-3 h-3" />
@@ -373,7 +437,11 @@ export function DeploymentControls({
 									{window.location.origin}/app/{appId}
 								</code>
 								<Button
-									onClick={() => copyLink(`${window.location.origin}/app/${appId}`)}
+									onClick={() =>
+										copyLink(
+											`${window.location.origin}/app/${appId}`,
+										)
+									}
 									variant="secondary"
 									className="h-7 px-2 text-xs bg-brand/10 border border-brand/30 text-kumo-brand hover:bg-brand/20 transition-all flex-shrink-0"
 								>
@@ -384,10 +452,12 @@ export function DeploymentControls({
 					)}
 
 					{/* Action Buttons - Enhanced with visibility toggle */}
-					<div className={cn(
-						"grid gap-3",
-						isRedeployReady ? "grid-cols-3" : "grid-cols-2"
-					)}>
+					<div
+						className={cn(
+							'grid gap-3',
+							isRedeployReady ? 'grid-cols-3' : 'grid-cols-2',
+						)}
+					>
 						{/* View Live Site Button */}
 						<Button
 							onClick={handleViewLive}
@@ -399,16 +469,16 @@ export function DeploymentControls({
 						</Button>
 
 						{/* Make Public/Private Button - Always visible after deployment */}
-						{deploymentTarget === 'platform' && appId && (
+						{appId && (
 							<Button
 								onClick={handleToggleVisibility}
 								disabled={isUpdatingVisibility}
 								variant="secondary"
 								className={cn(
-									"h-10 text-sm font-medium transition-all duration-200 shadow-sm",
+									'h-10 text-sm font-medium transition-all duration-200 shadow-sm',
 									localVisibility === 'private'
-										? "bg-brand hover:bg-brand/90 text-white border-brand hover:shadow-md hover:scale-[1.02]"
-										: "bg-kumo-base hover:bg-bg-4 text-text-primary hover:shadow-sm hover:scale-[1.02]"
+										? 'bg-brand hover:bg-brand/90 text-white border-brand hover:shadow-md hover:scale-[1.02]'
+										: 'bg-kumo-base hover:bg-bg-4 text-text-primary hover:shadow-sm hover:scale-[1.02]',
 								)}
 							>
 								{isUpdatingVisibility ? (
@@ -437,10 +507,10 @@ export function DeploymentControls({
 								disabled={isDeploying || isDeployButtonClicked}
 								variant="secondary"
 								className={cn(
-									"h-10 text-sm font-medium transition-all duration-200 shadow-sm",
+									'h-10 text-sm font-medium transition-all duration-200 shadow-sm',
 									!isDeploying
-										? "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 hover:shadow-md dark:hover:shadow-blue-900/50 hover:scale-[1.02]"
-										: "bg-kumo-base dark:bg-kumo-base text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed"
+										? 'bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 hover:shadow-md dark:hover:shadow-blue-900/50 hover:scale-[1.02]'
+										: 'bg-kumo-base dark:bg-kumo-base text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed',
 								)}
 							>
 								{isDeploying ? (

@@ -14,8 +14,7 @@ import {
 	DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, ExternalLink } from 'lucide-react';
-import { CloudflareLogo } from '@/components/icons/logos';
+import { AlertCircle } from 'lucide-react';
 import { MINIMUM_CLOUDFLARE_BALANCE } from '../../shared/constants/limits';
 
 export interface LimitCheckDialogResult {
@@ -24,10 +23,7 @@ export interface LimitCheckDialogResult {
 }
 
 
-/**
- * Internal helper: Create "No Token" dialog
- */
-function createNoTokenDialog(onConnect: () => void, onClose: () => void): React.ReactElement {
+function createUsageLimitDialog(onClose: () => void): React.ReactElement {
 	return (
 		<Dialog open={true} onOpenChange={onClose}>
 			<DialogContent className="sm:max-w-md">
@@ -36,40 +32,21 @@ function createNoTokenDialog(onConnect: () => void, onClose: () => void): React.
 						<AlertCircle className="h-10 w-10 text-text-tertiary" />
 					</div>
 					<DialogTitle className="text-xl">
-						Daily free limit exhausted
+						Usage limit reached
 					</DialogTitle>
 					<DialogDescription className="pt-2 text-sm">
-						You've used your free credits. Connect your Cloudflare account to continue building with your own credits.{' '}
-						<a
-							href="https://developers.cloudflare.com/ai-gateway/"
-							target="_blank"
-							rel="noopener noreferrer"
-							className="text-blue-500 hover:text-blue-600 inline-flex items-center gap-0.5"
-						>
-							Learn more
-							<ExternalLink className="h-3 w-3" />
-						</a>
+						You've reached your current usage limit. Masidy
+						pay-as-you-go billing is coming soon; please try again
+						later.
 					</DialogDescription>
 				</DialogHeader>
 				<DialogFooter className="sm:justify-start gap-2">
 					<Button
 						type="button"
-						onClick={() => {
-							onClose();
-							onConnect();
-						}}
+						onClick={onClose}
 						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
 					>
-						<CloudflareLogo className="w-4 h-4 mr-2" color1="#fff" color2="#fff" />
-						Connect Cloudflare
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						onClick={onClose}
-						className="w-full sm:w-auto"
-					>
-						Cancel
+						Got it
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -77,10 +54,9 @@ function createNoTokenDialog(onConnect: () => void, onClose: () => void): React.
 	);
 }
 
-/**
- * Internal helper: Create "Not Configured" dialog
- */
-function createNotConfiguredDialog(onClose: () => void): React.ReactElement {
+function createPublishingUnavailableDialog(
+	onClose: () => void,
+): React.ReactElement {
 	return (
 		<Dialog open={true} onOpenChange={onClose}>
 			<DialogContent className="sm:max-w-md">
@@ -89,31 +65,20 @@ function createNotConfiguredDialog(onClose: () => void): React.ReactElement {
 						<AlertCircle className="h-10 w-10 text-text-tertiary" />
 					</div>
 					<DialogTitle className="text-xl">
-						Configure AI Gateway
+						Publishing isn't available yet
 					</DialogTitle>
 					<DialogDescription className="pt-2 text-sm">
-						Your Cloudflare account is connected but you need to select an AI Gateway to continue.
+						Masidy-hosted app publishing is still being set up.
+						Please try again later.
 					</DialogDescription>
 				</DialogHeader>
 				<DialogFooter className="sm:justify-start gap-2">
 					<Button
 						type="button"
-						onClick={() => {
-							onClose();
-							window.location.href = '/settings?config_needed=true';
-						}}
+						onClick={onClose}
 						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
 					>
-						<CloudflareLogo className="w-4 h-4 mr-2" color1="#fff" color2="#fff" />
-						Configure Gateway
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						onClick={onClose}
-						className="w-full sm:w-auto"
-					>
-						Cancel
+						Got it
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -122,166 +87,16 @@ function createNotConfiguredDialog(onClose: () => void): React.ReactElement {
 }
 
 /**
- * Internal helper: Create "Insufficient Balance" dialog
- */
-function createInsufficientBalanceDialog(balance: number, accountId: string | undefined, onClose: () => void): React.ReactElement {
-	return (
-		<Dialog open={true} onOpenChange={onClose}>
-			<DialogContent className="sm:max-w-md">
-				<DialogHeader>
-					<div className="mb-2">
-						<AlertCircle className="h-10 w-10 text-text-tertiary" />
-					</div>
-					<DialogTitle className="text-xl">
-						Insufficient credits
-					</DialogTitle>
-					<DialogDescription className="pt-2 text-sm">
-						Your Cloudflare account has ${balance.toFixed(2)} in credits. Add more credits to continue building.{' '}
-						<a
-							href="https://developers.cloudflare.com/ai-gateway/"
-							target="_blank"
-							rel="noopener noreferrer"
-							className="text-blue-500 hover:text-blue-600 inline-flex items-center gap-0.5"
-						>
-							Learn more
-							<ExternalLink className="h-3 w-3" />
-						</a>
-					</DialogDescription>
-				</DialogHeader>
-				<DialogFooter className="sm:justify-start gap-2">
-					<Button
-						type="button"
-						onClick={() => {
-							onClose();
-							const url = accountId 
-								? `https://dash.cloudflare.com/${accountId}/ai/ai-gateway/credits`
-								: 'https://dash.cloudflare.com';
-							window.open(url, '_blank', 'noopener,noreferrer');
-						}}
-						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
-					>
-						<ExternalLink className="w-4 h-4 mr-2" />
-						Add Credits
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						onClick={onClose}
-						className="w-full sm:w-auto"
-					>
-						Cancel
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
-}
-
-/**
- * Internal helper: Create "Connect to Deploy" dialog
- * Shown when a user-account deploy fails because no Cloudflare OAuth token exists.
- */
-function createDeployConnectDialog(onConnect: () => void, onClose: () => void): React.ReactElement {
-	return (
-		<Dialog open={true} onOpenChange={onClose}>
-			<DialogContent className="sm:max-w-md">
-				<DialogHeader>
-					<div className="mb-2">
-						<AlertCircle className="h-10 w-10 text-text-tertiary" />
-					</div>
-					<DialogTitle className="text-xl">
-						Connect Cloudflare to deploy
-					</DialogTitle>
-					<DialogDescription className="pt-2 text-sm">
-						Connect your Cloudflare account to deploy this app to your own Workers account and keep it running on your credits.
-					</DialogDescription>
-				</DialogHeader>
-				<DialogFooter className="sm:justify-start gap-2">
-					<Button
-						type="button"
-						onClick={() => {
-							onClose();
-							onConnect();
-						}}
-						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
-					>
-						<CloudflareLogo className="w-4 h-4 mr-2" color1="#fff" color2="#fff" />
-						Connect Cloudflare
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						onClick={onClose}
-						className="w-full sm:w-auto"
-					>
-						Cancel
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
-}
-
-/**
- * Internal helper: Create "Select account to Deploy" dialog
- * Shown when a user-account deploy fails because no account/gateway is selected.
- */
-function createDeployNotConfiguredDialog(onClose: () => void): React.ReactElement {
-	return (
-		<Dialog open={true} onOpenChange={onClose}>
-			<DialogContent className="sm:max-w-md">
-				<DialogHeader>
-					<div className="mb-2">
-						<AlertCircle className="h-10 w-10 text-text-tertiary" />
-					</div>
-					<DialogTitle className="text-xl">
-						Select a Cloudflare account
-					</DialogTitle>
-					<DialogDescription className="pt-2 text-sm">
-						You have multiple Cloudflare accounts connected. Select which one to deploy to in Settings.
-					</DialogDescription>
-				</DialogHeader>
-				<DialogFooter className="sm:justify-start gap-2">
-					<Button
-						type="button"
-						onClick={() => {
-							onClose();
-							window.location.href = '/settings?config_needed=true';
-						}}
-						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
-					>
-						<CloudflareLogo className="w-4 h-4 mr-2" color1="#fff" color2="#fff" />
-						Open Settings
-					</Button>
-					<Button
-						type="button"
-						variant="outline"
-						onClick={onClose}
-						className="w-full sm:w-auto"
-					>
-						Cancel
-					</Button>
-				</DialogFooter>
-			</DialogContent>
-		</Dialog>
-	);
-}
-
-/**
- * Map a backend `cloudflare_deployment_error` code to the matching
- * connection-gate dialog. Returns null for codes that shouldn't pop a dialog
- * (generic deploy failures keep the toast/chat-message treatment).
+ * Replace retired customer-account deployment prompts with Masidy messaging.
  */
 export function getDeployGateDialog(
 	code: CloudflareDeploymentErrorCode,
-	onConnect: () => void,
 	onClose: () => void
 ): React.ReactElement | null {
 	switch (code) {
 		case 'cloudflare_not_connected':
-			return createDeployConnectDialog(onConnect, onClose);
 		case 'cloudflare_not_configured':
-			return createDeployNotConfiguredDialog(onClose);
+			return createPublishingUnavailableDialog(onClose);
 		default:
 			return null;
 	}
@@ -293,7 +108,6 @@ export function getDeployGateDialog(
 export function checkCanSendPrompt(
 	limitsData: UsageSummary | null,
 	loading: boolean,
-	onConnect: () => void,
 	onClose: () => void
 ): LimitCheckDialogResult {
 	// If loading or no data, allow proceed (optimistic)
@@ -314,7 +128,7 @@ export function checkCanSendPrompt(
 	if (!hasUserToken) {
 		return {
 			canProceed: false,
-			dialogComponent: createNoTokenDialog(onConnect, onClose),
+			dialogComponent: createUsageLimitDialog(onClose),
 		};
 	}
 
@@ -322,7 +136,7 @@ export function checkCanSendPrompt(
 	if (hasUserToken && !hasCloudflareConfigured) {
 		return {
 			canProceed: false,
-			dialogComponent: createNotConfiguredDialog(onClose),
+			dialogComponent: createUsageLimitDialog(onClose),
 		};
 	}
 
@@ -333,11 +147,7 @@ export function checkCanSendPrompt(
 		if (credits < MINIMUM_CLOUDFLARE_BALANCE) {
 			return {
 				canProceed: false,
-				dialogComponent: createInsufficientBalanceDialog(
-					credits,
-					cloudflareCredits?.accountId,
-					onClose
-				),
+				dialogComponent: createUsageLimitDialog(onClose),
 			};
 		}
 	}
@@ -353,7 +163,6 @@ export function checkCanSendPrompt(
  */
 export function getBackendLimitDialog(
 	limitsData: UsageSummary | null,
-	onConnect: () => void,
 	onClose: () => void
 ): LimitCheckDialogResult {
 	// Use the same logic as checkCanSendPrompt, but don't check if within limits
@@ -368,7 +177,7 @@ export function getBackendLimitDialog(
 	if (!hasUserToken) {
 		return {
 			canProceed: false,
-			dialogComponent: createNoTokenDialog(onConnect, onClose),
+			dialogComponent: createUsageLimitDialog(onClose),
 		};
 	}
 
@@ -376,7 +185,7 @@ export function getBackendLimitDialog(
 	if (hasUserToken && !hasCloudflareConfigured) {
 		return {
 			canProceed: false,
-			dialogComponent: createNotConfiguredDialog(onClose),
+			dialogComponent: createUsageLimitDialog(onClose),
 		};
 	}
 
@@ -387,11 +196,7 @@ export function getBackendLimitDialog(
 		if (credits < MINIMUM_CLOUDFLARE_BALANCE) {
 			return {
 				canProceed: false,
-				dialogComponent: createInsufficientBalanceDialog(
-					credits,
-					cloudflareCredits?.accountId,
-					onClose
-				),
+				dialogComponent: createUsageLimitDialog(onClose),
 			};
 		}
 	}

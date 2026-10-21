@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
+import { useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowUpRight, Loader2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { useAuth } from '@/contexts/auth-context';
@@ -26,7 +26,6 @@ import { checkCanSendPrompt } from '@/utils/usage-limit-checker';
 import { MasidyLogo } from '@/components/masidy-logo';
 import { PromptBox } from '@/components/prompt-box';
 import { InfoIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
-import { startCloudflareConnect } from '@/lib/cloudflare-connect';
 
 export default function Home() {
 	const navigate = useNavigate();
@@ -41,10 +40,6 @@ export default function Home() {
 		useLimitsContext();
 	const [showLimitDialog, setShowLimitDialog] =
 		useState<React.ReactElement | null>(null);
-
-	const handleConnectCloudflare = useCallback(() => {
-		void startCloudflareConnect(window.location.href);
-	}, []);
 
 	// Surface auth failures redirected here from the OAuth callback (e.g. an email
 	// that already belongs to an account created via a different method).
@@ -163,9 +158,6 @@ export default function Home() {
 		const limitCheck = checkCanSendPrompt(
 			limitsData,
 			usageLimitsLoading,
-			() => {
-				void startCloudflareConnect(window.location.href);
-			},
 			() => setShowLimitDialog(null),
 		);
 
@@ -235,7 +227,6 @@ export default function Home() {
 							dragHandlers={dragHandlers}
 							submitDisabled={user ? usageLimitsLoading : false}
 							limitsData={user ? limitsData : undefined}
-							onConnectCloudflare={handleConnectCloudflare}
 							variant="expanded"
 							submitIcon={
 								user && usageLimitsLoading ? (

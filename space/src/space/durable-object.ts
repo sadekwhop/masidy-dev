@@ -5,6 +5,7 @@ import type { Env } from "../env"
 import {
   buildBranchDeployment,
   handleDeployCommand,
+  saveDeploymentBundle,
   type BranchDeploymentBundle,
   type DeployContext,
 } from "./deploy-engine"
@@ -17,6 +18,12 @@ import {
 import { ArtifactsBackend, resolveSpaceFsBackendMode, SqlBackend, type SpaceFsBackend } from "./fs-backend"
 import { stageWorkdir, stagedTreeMatchesHead, resolveHead } from "./git-objects"
 import { stripPreviewSecurityHeaders } from "./preview-headers"
+import {
+  checkPublishedRequestLimit,
+  ensurePublishedUsageTable,
+  MAX_PUBLISHED_BUNDLE_BYTES,
+  publishedBundleSizeBytes,
+} from "./published-limits"
 
 // ─── Inspector result types ────────────────────────────────────────────────
 // These mirror the shapes returned by the wrapper-subclass injected into
@@ -85,6 +92,9 @@ type CachedAssets = {
 }
 const ASSET_CACHE_MAX_ENTRIES = 8
 const ASSET_CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+const PUBLISHED_DEPLOYMENT_KEY = "__masidy_published__"
+const PUBLISHED_DEPLOYMENT_MARKER = "masidy:published"
+const PUBLISHED_REQUEST_PATH = "/__masidy/published"
 
 export class SpaceDO extends DurableObject<Env> {
   private backend!: SpaceFsBackend
@@ -141,6 +151,7 @@ export class SpaceDO extends DurableObject<Env> {
         deployed_at INTEGER NOT NULL
       )
     `)
+    ensurePublishedUsageTable(this.ctx.storage.sql)
 
     // Migrate existing deployments tables that lack new columns
     try { this.ctx.storage.sql.exec(`ALTER TABLE deployments ADD COLUMN assets TEXT NOT NULL DEFAULT '{}'`) } catch {}
@@ -562,6 +573,48 @@ export class SpaceDO extends DurableObject<Env> {
     )
   }
 
+  async publish(branch: string): Promise<{ commitHash: string; sizeBytes: number }> {
+    await this.ensureInit()
+    await this.materializeAll()
+    await this.flushCheckpoint()
+
+    const bundle = await buildBranchDeployment(
+      { sql: this.ctx.storage.sql, git: this.git, fs: this.fs },
+      branch,
+    )
+    const sizeBytes = publishedBundleSizeBytes(bundle)
+    if (sizeBytes > MAX_PUBLISHED_BUNDLE_BYTES) {
+      throw new Error(
+        `Published app bundle exceeds the ${MAX_PUBLISHED_BUNDLE_BYTES} byte limit`,
+      )
+    }
+
+    await this.backend.push(branch)
+    saveDeploymentBundle(this.ctx.storage.sql, bundle, PUBLISHED_DEPLOYMENT_KEY)
+    await this.ctx.storage.put(PUBLISHED_DEPLOYMENT_MARKER, true)
+    return { commitHash: bundle.commitHash, sizeBytes }
+  }
+
+  async servePublished(request: Request): Promise<Response> {
+    await this.ensureInit()
+    const published = await this.ctx.storage.get<boolean>(PUBLISHED_DEPLOYMENT_MARKER)
+    if (!published) return new Response("Not Found", { status: 404 })
+
+    const usage = checkPublishedRequestLimit(this.ctx.storage.sql)
+    if (!usage.allowed) {
+      return new Response("Daily app request limit reached.", {
+        status: 429,
+        headers: {
+          "Retry-After": String(usage.retryAfterSeconds),
+          "Cache-Control": "no-store",
+        },
+      })
+    }
+
+    const response = await this.servePreview(PUBLISHED_DEPLOYMENT_KEY, request)
+    return stripPreviewSecurityHeaders(response)
+  }
+
   async undeploy(branch: string): Promise<unknown> {
     await this.ensureInit()
     const fakeRequest = new Request("http://internal/?cmd=undeploy", {
@@ -830,6 +883,13 @@ export class SpaceDO extends DurableObject<Env> {
 
     const url = new URL(request.url)
     const path = url.pathname
+
+    if (path === PUBLISHED_REQUEST_PATH || path.startsWith(`${PUBLISHED_REQUEST_PATH}/`)) {
+      const appUrl = new URL(url)
+      const appPath = path.slice(PUBLISHED_REQUEST_PATH.length)
+      appUrl.pathname = appPath.startsWith("/") ? appPath : "/"
+      return this.servePublished(new Request(appUrl, request))
+    }
 
     // Preview routes: /space/:name/preview/:branch/*
     const previewMatch = path.match(/\/preview\/([^/]+)(\/.*)?$/)

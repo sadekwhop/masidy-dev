@@ -14,10 +14,21 @@ declare namespace Cloudflare {
 		// Secret bindings are omitted by `wrangler types` when absent from .dev.vars.
 		AI_PROXY_JWT_SECRET: string;
 		ANTHROPIC_API_KEY: string;
+		BENCHMARK_MODE: string;
 		CF_ACCESS_ID: string;
 		CF_ACCESS_SECRET: string;
+		CF_OAUTH_ENCRYPTION_KEY: string;
+		CLOUDFLARE_ACCOUNT_ID: string;
+		CLOUDFLARE_API_TOKEN: string;
+		CLOUDFLARE_AI_GATEWAY_TOKEN: string;
 		CLOUDFLARE_AI_GATEWAY_URL: string;
+		CLOUDFLARE_OAUTH_CLIENT_ID: string;
+		CLOUDFLARE_OAUTH_CLIENT_SECRET: string;
 		CUSTOM_PREVIEW_DOMAIN: string;
+		DISPATCHER?: DispatchNamespace;
+		ENVIRONMENT: string;
+		GITHUB_EXPORTER_CLIENT_ID: string;
+		GITHUB_EXPORTER_CLIENT_SECRET: string;
 		GOOGLE_AI_STUDIO_API_KEY: string;
 		GOOGLE_CLIENT_ID: string;
 		GOOGLE_CLIENT_SECRET: string;
@@ -30,5 +41,6 @@ declare namespace Cloudflare {
 		SANDBOX_SERVICE_URL: string;
 		SENTRY_DSN: string;
 		SERPAPI_KEY: string;
+		JWT_SECRET: string;
 	}
 }

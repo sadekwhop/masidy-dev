@@ -1,10 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router';
-import {
-	useMutation,
-	useQuery,
-	useQueryClient,
-} from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
 	Smartphone,
 	Trash2,
@@ -37,9 +32,10 @@ import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
-import { CloudflareAccountSelector } from '@/components/cloudflare-account-selector';
 import { ConnectedAccounts } from '@/components/connected-accounts';
 import { BiohazardIcon, TrashIcon } from '@phosphor-icons/react';
+
+const ENABLE_SDK_API_KEYS = false;
 
 type CreatedApiKey = {
 	key: string;
@@ -86,31 +82,6 @@ async function fetchApiKeys(): Promise<ApiKeysData> {
 export default function SettingsPage() {
 	const { user } = useAuth();
 	const queryClient = useQueryClient();
-	const [searchParams, setSearchParams] = useSearchParams();
-
-	useEffect(() => {
-		const status = searchParams.get('cloudflare');
-		if (!status) return;
-
-		if (status === 'connected') {
-			toast.success('Cloudflare connected successfully');
-		} else {
-			const reason = searchParams.get('reason');
-			const messages: Record<string, string> = {
-				connect_endpoint_changed: 'Please try connecting Cloudflare again.',
-				session_mismatch: 'Your session changed during connection. Please try again.',
-				missing_verifier: 'Cloudflare connection expired. Please try again.',
-				invalid_state: 'Cloudflare connection could not be verified. Please try again.',
-			};
-			toast.error(messages[reason ?? ''] ?? 'Failed to connect Cloudflare. Please try again.');
-		}
-
-		const next = new URLSearchParams(searchParams);
-		next.delete('cloudflare');
-		next.delete('reason');
-		next.delete('accounts');
-		setSearchParams(next, { replace: true });
-	}, [searchParams, setSearchParams]);
 	const activeSessionsQuery = useQuery({
 		queryKey: queryKeys.account.settings.activeSessions(user?.id),
 		queryFn: fetchActiveSessions,
@@ -119,7 +90,7 @@ export default function SettingsPage() {
 	const apiKeysQuery = useQuery({
 		queryKey: queryKeys.account.settings.apiKeys(user?.id),
 		queryFn: fetchApiKeys,
-		enabled: !!user,
+		enabled: !!user && ENABLE_SDK_API_KEYS,
 	});
 	const [createKeyOpen, setCreateKeyOpen] = useState(false);
 	const [newKeyName, setNewKeyName] = useState('');
@@ -262,10 +233,10 @@ export default function SettingsPage() {
 						</p>
 					</div>
 
-					{/* Cloudflare Account & Gateway Selection */}
-					<CloudflareAccountSelector />
-
-					<LayerCard id="api-keys">
+					<LayerCard
+						id="api-keys"
+						className={!ENABLE_SDK_API_KEYS ? 'hidden' : undefined}
+					>
 						<LayerCard.Secondary className="font-funky-mono tracking-tighter">
 							<div className="flex items-center gap-2">
 								<span className="flex items-center">
@@ -508,11 +479,21 @@ export default function SettingsPage() {
 											<Table>
 												<Table.Header>
 													<Table.Row>
-														<Table.Head>Name</Table.Head>
-														<Table.Head>Preview</Table.Head>
-														<Table.Head>Created</Table.Head>
-														<Table.Head>Last used</Table.Head>
-														<Table.Head>Status</Table.Head>
+														<Table.Head>
+															Name
+														</Table.Head>
+														<Table.Head>
+															Preview
+														</Table.Head>
+														<Table.Head>
+															Created
+														</Table.Head>
+														<Table.Head>
+															Last used
+														</Table.Head>
+														<Table.Head>
+															Status
+														</Table.Head>
 														<Table.Head className="text-right">
 															Actions
 														</Table.Head>
@@ -562,14 +543,14 @@ export default function SettingsPage() {
 																	disabled={
 																		!k.isActive
 																	}
-																onClick={() => {
-																	setRevokeError(
-																		undefined,
-																	);
-																	setKeyToRevoke(
-																		k,
-																	);
-																}}
+																	onClick={() => {
+																		setRevokeError(
+																			undefined,
+																		);
+																		setKeyToRevoke(
+																			k,
+																		);
+																	}}
 																	className="gap-2"
 																>
 																	<Trash2 className="size-4" />
@@ -582,24 +563,26 @@ export default function SettingsPage() {
 											</Table>
 										</LayerCard>
 
-									{keyToRevoke && (
-										<DeleteResource
-											open={!!keyToRevoke}
-											onOpenChange={(open) => {
-												if (!open) {
-													setKeyToRevoke(null);
-													setRevokeError(undefined);
-												}
-											}}
-											resourceType="API key"
-											resourceName={keyToRevoke.name}
-											onDelete={handleRevokeApiKey}
-											isDeleting={revokingKey}
-											errorMessage={revokeError}
-											deleteButtonText="Revoke API key"
-											className="sm:w-[32rem]"
-										/>
-									)}
+										{keyToRevoke && (
+											<DeleteResource
+												open={!!keyToRevoke}
+												onOpenChange={(open) => {
+													if (!open) {
+														setKeyToRevoke(null);
+														setRevokeError(
+															undefined,
+														);
+													}
+												}}
+												resourceType="API key"
+												resourceName={keyToRevoke.name}
+												onDelete={handleRevokeApiKey}
+												isDeleting={revokingKey}
+												errorMessage={revokeError}
+												deleteButtonText="Revoke API key"
+												className="sm:w-[32rem]"
+											/>
+										)}
 									</>
 								)}
 							</div>
@@ -634,53 +617,49 @@ export default function SettingsPage() {
 											</span>
 										</div>
 									) : (
-										activeSessions.map(
-											(session) => (
-												<div
-													key={session.id}
-													className="flex items-center justify-between gap-4"
-												>
-													<div className="flex items-start gap-2">
-														<span className="h-lh flex items-center">
-															<Smartphone className="size-4 text-kumo-subtle" />
-														</span>
-														<div className="grid gap-1.5">
-															<p className="text-sm font-medium text-kumo-default">
-																{session.isCurrent
-																	? 'Current session'
-																	: 'Other session'}
-															</p>
-															<p className="text-sm text-kumo-subtle">
-																{
-																	session.ipAddress
-																}{' '}
-																•{' '}
-																{new Date(
-																	session.lastActivity,
-																).toLocaleDateString()}
-															</p>
-														</div>
-													</div>
-													<div className="flex items-center gap-2">
-														{session.isCurrent ? (
-															<div className="bg-green-400 size-3 rounded-full ring-2 ring-green-200 animate-pulse" />
-														) : (
-															<Button
-																variant="secondary"
-																size="sm"
-																onClick={() =>
-																	handleRevokeSession(
-																		session.id,
-																	)
-																}
-															>
-																Revoke
-															</Button>
-														)}
+										activeSessions.map((session) => (
+											<div
+												key={session.id}
+												className="flex items-center justify-between gap-4"
+											>
+												<div className="flex items-start gap-2">
+													<span className="h-lh flex items-center">
+														<Smartphone className="size-4 text-kumo-subtle" />
+													</span>
+													<div className="grid gap-1.5">
+														<p className="text-sm font-medium text-kumo-default">
+															{session.isCurrent
+																? 'Current session'
+																: 'Other session'}
+														</p>
+														<p className="text-sm text-kumo-subtle">
+															{session.ipAddress}{' '}
+															•{' '}
+															{new Date(
+																session.lastActivity,
+															).toLocaleDateString()}
+														</p>
 													</div>
 												</div>
-											),
-										)
+												<div className="flex items-center gap-2">
+													{session.isCurrent ? (
+														<div className="bg-green-400 size-3 rounded-full ring-2 ring-green-200 animate-pulse" />
+													) : (
+														<Button
+															variant="secondary"
+															size="sm"
+															onClick={() =>
+																handleRevokeSession(
+																	session.id,
+																)
+															}
+														>
+															Revoke
+														</Button>
+													)}
+												</div>
+											</div>
+										))
 									)}
 								</div>
 							</div>
@@ -691,7 +670,10 @@ export default function SettingsPage() {
 						<LayerCard.Secondary className="font-funky-mono tracking-tighter">
 							<div className="flex items-center gap-2 text-kumo-danger">
 								<span className="h-lh flex items-center">
-									<BiohazardIcon weight="duotone" className="size-4" />
+									<BiohazardIcon
+										weight="duotone"
+										className="size-4"
+									/>
 								</span>
 								Danger zone
 							</div>

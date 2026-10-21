@@ -30,7 +30,8 @@ import { withDurableObjectResetRetry } from '../../think/space-workspace-ops';
 import { THINK_MODEL_CONFIG, THINK_MODEL_ID } from '../../think/model-config';
 import type { BranchDeploymentBundle } from '@space-do/space';
 import { CloudflareAccountService } from '../../../services/cloudflare/CloudflareAccountService';
-import { deployThinkBundleToPlatform, deployThinkBundleToUserAccount } from '../../../services/deployer/think-user-deploy';
+import { deployThinkBundleToUserAccount } from '../../../services/deployer/think-user-deploy';
+import { buildManagedAppDeploymentId, buildManagedAppUrl } from '../../../utils/urls';
 import { resolveCloudflareAccessToken } from '../../../services/rate-limit/usageChecker';
 import type { CloudflareDeploymentErrorCode } from '../../../api/websocketTypes';
 
@@ -58,6 +59,7 @@ type SpaceRpcStub = {
 		branch: string,
 	) => Promise<{ preview_url?: string; commit_hash?: string; error?: string; details?: string }>;
 	getDeploymentBundle: (branch: string) => Promise<BranchDeploymentBundle>;
+	publish: (branch: string) => Promise<{ commitHash: string; sizeBytes: number }>;
 	rollbackToCommit: (branch: string, commitHash: string) => Promise<unknown>;
 };
 
@@ -908,7 +910,7 @@ export class ThinkCodingBehavior
 		const userAccountDeployEnabled = this.env.ENABLE_USER_ACCOUNT_DEPLOY === 'true';
 
 		if (!userAccountDeployEnabled) {
-			return this.deployThinkAppToPlatform();
+			return this.deployThinkAppToMasidy();
 		}
 
 		if (target !== 'user') {
@@ -987,56 +989,47 @@ export class ThinkCodingBehavior
 	}
 
 	/**
-	 * Default think deploy when `ENABLE_USER_ACCOUNT_DEPLOY` is off: publish the
-	 * SpaceDO bundle to the platform's dispatch namespace with platform creds.
+	 * Default Think deployment: publish the SpaceDO snapshot through Masidy's
+	 * Dynamic Workers runtime without uploading a separate Worker script.
 	 */
-	private async deployThinkAppToPlatform(): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
+	private async deployThinkAppToMasidy(): Promise<{ deploymentUrl?: string; workersUrl?: string } | null> {
 		const instanceId = this.getAgentId();
 		this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_STARTED, {
-			message: 'Starting deployment to Cloudflare Workers...',
+			message: 'Publishing on Masidy...',
 			instanceId,
 		});
 		try {
-			const accountId = this.env.CLOUDFLARE_ACCOUNT_ID;
-			const apiToken = this.env.CLOUDFLARE_API_TOKEN;
-			if (!accountId || !apiToken) {
-				throw new Error('CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be set in environment');
-			}
-			const dispatchNamespace = (this.env as unknown as { DISPATCH_NAMESPACE?: string })
-				.DISPATCH_NAMESPACE;
-			if (!dispatchNamespace) {
-				throw new Error('DISPATCH_NAMESPACE not found in environment variables, cannot deploy without dispatch namespace');
-			}
-
 			const branch = this.state.currentBranch || 'main';
 			try {
-				await this.callSpace((space) => space.gitCommit('deploy: publish to platform'));
+				await this.callSpace((space) => space.gitCommit('deploy: publish on Masidy'));
 			} catch (error) {
 				this.logger.debug('No new workspace changes to commit before publishing', error);
 			}
-			const bundle = await this.callSpace((space) => space.getDeploymentBundle(branch));
-			const result = await deployThinkBundleToPlatform({
-				accountId,
-				apiToken,
-				dispatchNamespace,
-				previewDomain: getPreviewDomain(this.env),
-				appName: this.state.blueprint.title || this.state.projectName || `vibe-${instanceId}`,
-				bundle,
-			});
-			await new AppService(this.env).updateDeploymentId(instanceId, result.deploymentId);
-			this.setState({ ...this.state, cloudflareDeploymentUrl: result.deploymentUrl });
-			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, {
-				message: 'Successfully deployed to Cloudflare Workers',
+			await this.callSpace((space) => space.publish(branch));
+
+			const deploymentId = buildManagedAppDeploymentId(
+				this.state.blueprint.title || this.state.projectName || 'app',
 				instanceId,
-				deploymentUrl: result.deploymentUrl,
-				workersUrl: result.deploymentUrl,
+			);
+			const deploymentUrl = buildManagedAppUrl(this.env, deploymentId);
+			const updated = await new AppService(this.env).updateDeploymentId(instanceId, deploymentId);
+			if (!updated) {
+				throw new Error('The app was published, but Masidy could not save its public URL');
+			}
+
+			this.setState({ ...this.state, cloudflareDeploymentUrl: deploymentUrl });
+			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_COMPLETED, {
+				message: 'Successfully published on Masidy',
+				instanceId,
+				deploymentUrl,
+				workersUrl: deploymentUrl,
 			});
-			return { deploymentUrl: result.deploymentUrl, workersUrl: result.deploymentUrl };
+			return { deploymentUrl, workersUrl: deploymentUrl };
 		} catch (error) {
 			const message = error instanceof Error ? error.message : String(error);
-			this.logger.error('Think platform deployment failed', error);
+			this.logger.error('Think managed deployment failed', error);
 			this.broadcast(WebSocketMessageResponses.CLOUDFLARE_DEPLOYMENT_ERROR, {
-				message: 'Deployment failed',
+				message: 'Masidy publishing failed',
 				instanceId,
 				error: message,
 			});
