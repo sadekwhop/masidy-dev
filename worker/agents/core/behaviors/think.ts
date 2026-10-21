@@ -26,7 +26,8 @@ import { signSpacePreviewToken } from 'worker/utils/spacePreviewToken';
 import { AppService } from 'worker/database/services/AppService';
 import type { ThinkAgentConfig } from '../../think/ThinkAgent';
 import { withDurableObjectResetRetry } from '../../think/space-workspace-ops';
-import { getThinkModelId, THINK_MODEL_CONFIG, THINK_MODEL_ID } from '../../think/model-config';
+import { THINK_MODEL_CONFIG } from '../../think/model-config';
+import { resolveAgent } from '../../router/agents';
 import type { BranchDeploymentBundle } from '@space-do/space';
 import { CloudflareAccountService } from '../../../services/cloudflare/CloudflareAccountService';
 import { deployThinkBundleToUserAccount } from '../../../services/deployer/think-user-deploy';
@@ -216,29 +217,33 @@ export class ThinkCodingBehavior
 	/** Push the Workers AI model and gateway configuration into the ThinkAgent DO. */
 	private async configureThinkAgent(): Promise<void> {
 		const userId = this.state.metadata.userId;
-		const modelName = THINK_MODEL_ID;
-		const aiModelConfig = THINK_MODEL_CONFIG;
 		const gatewayId = this.env.CLOUDFLARE_AI_GATEWAY;
-		const dynamicRouteName = this.env.CLOUDFLARE_AI_GATEWAY_ROUTE?.trim();
 		if (!gatewayId) {
 			this.logger.error('CLOUDFLARE_AI_GATEWAY is required to configure ThinkAgent');
 			return;
 		}
-		try {
-			getThinkModelId(dynamicRouteName);
-		} catch (error) {
-			this.logger.error('CLOUDFLARE_AI_GATEWAY_ROUTE is invalid', error);
-			return;
-		}
+
+		// Use the multi-agent router to pick the right dynamic route.
+		// state.query is the user's original request for a new project;
+		// for follow-up turns, grab the last pending input if available.
+		const lastUserMsg =
+			this.state.pendingUserInputs?.at(-1) ??
+			this.state.query ??
+			'';
+
+		const agent = resolveAgent(typeof lastUserMsg === 'string' ? lastUserMsg : '');
+
+		this.logger.info(`Router selected agent: ${agent.name} (route: ${agent.routeName})`, { userId });
+
 		const config: ThinkAgentConfig = {
 			userId,
 			model: {
-				modelName,
+				modelName: agent.primaryModelId,
 				gatewayId,
-				...(dynamicRouteName ? { dynamicRouteName } : {}),
-				contextSize: aiModelConfig.contextSize,
+				dynamicRouteName: agent.routeName,
+				contextSize: THINK_MODEL_CONFIG.contextSize,
 			},
-			systemPrompt: this.buildSystemPrompt(modelName),
+			systemPrompt: this.buildSystemPrompt(agent.primaryModelId),
 			previewUrl: await this.getBrowserPreviewURL(0).catch(() => undefined),
 		};
 
