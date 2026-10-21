@@ -33,6 +33,7 @@ import { apiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-keys';
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import { ConnectedAccounts } from '@/components/connected-accounts';
+import { BillingSection } from '@/components/billing-section';
 import { BiohazardIcon, TrashIcon } from '@phosphor-icons/react';
 
 const ENABLE_SDK_API_KEYS = false;
@@ -665,6 +666,8 @@ export default function SettingsPage() {
 							</div>
 						</LayerCard.Primary>
 					</LayerCard>
+
+					<BillingSection />
 
 					<LayerCard id="danger-zone">
 						<LayerCard.Secondary className="font-funky-mono tracking-tighter">

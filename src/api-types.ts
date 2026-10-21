@@ -341,3 +341,16 @@ export type {
     GitHubExportOptions,
     GitHubExportResult,
 } from 'worker/services/github/types';
+
+// Payment API Types
+export type {
+  PaymentWalletData,
+  PaymentBalanceData,
+  VerifyPaymentRequest,
+  VerifyPaymentData,
+  PaymentHistoryItem,
+  PaymentHistoryData,
+  UsageTransactionItem,
+  UsageByActionItem,
+  UsageHistoryData,
+} from 'worker/api/controllers/payments/types';

@@ -98,5 +98,36 @@ export const queryKeys = {
 					userId ?? 'anonymous',
 				] as const,
 		},
+		payments: {
+			all: () => [...queryKeys.account.all, 'payments'] as const,
+			walletAll: () =>
+				[...queryKeys.account.payments.all(), 'wallet'] as const,
+			wallet: (userId?: string | null) =>
+				[
+					...queryKeys.account.payments.walletAll(),
+					userId ?? 'anonymous',
+				] as const,
+			balanceAll: () =>
+				[...queryKeys.account.payments.all(), 'balance'] as const,
+			balance: (userId?: string | null) =>
+				[
+					...queryKeys.account.payments.balanceAll(),
+					userId ?? 'anonymous',
+				] as const,
+			historyAll: () =>
+				[...queryKeys.account.payments.all(), 'history'] as const,
+			history: (userId?: string | null) =>
+				[
+					...queryKeys.account.payments.historyAll(),
+					userId ?? 'anonymous',
+				] as const,
+			usageAll: () =>
+				[...queryKeys.account.payments.all(), 'usage'] as const,
+			usage: (userId?: string | null) =>
+				[
+					...queryKeys.account.payments.usageAll(),
+					userId ?? 'anonymous',
+				] as const,
+		},
 	},
 };

@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 import { useUserStats, useUserActivity } from '@/hooks/use-stats';
 import { useUpdateProfile } from '@/hooks/use-profile';
 import { useApps } from '@/hooks/use-apps';
+import { UsageDashboard } from '@/components/usage-dashboard';
 
 const STATS = [
 	{
@@ -281,6 +282,7 @@ export default function Profile() {
 							{ value: 'apps', label: 'Apps' },
 							{ value: 'achievements', label: 'Achievements' },
 							{ value: 'activity', label: 'Activity' },
+							{ value: 'billing', label: 'Billing' },
 						]}
 					/>
 
@@ -633,6 +635,8 @@ export default function Profile() {
 							</LayerCard.Primary>
 						</LayerCard>
 					)}
+
+					{activeTab === 'billing' && <UsageDashboard />}
 				</div>
 			</main>
 		</div>

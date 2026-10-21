@@ -615,6 +615,62 @@ export const systemSettings = sqliteTable('system_settings', {
 }));
 
 // ========================================
+// USDC PAYMENTS & CREDITS
+// ========================================
+
+/**
+ * User Credits table — current prepaid credit balance per user.
+ * One row per user. Credits are in USD-equivalent (1 credit = $1).
+ */
+export const userCredits = sqliteTable('user_credits', {
+    userId: text('user_id').primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+    balance: real('balance').notNull().default(0),
+    totalDeposited: real('total_deposited').notNull().default(0),
+    totalUsed: real('total_used').notNull().default(0),
+    updatedAt: integer('updated_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+});
+
+/**
+ * User Payments table — USDC deposit records.
+ * Each row is a verified on-chain USDC transfer to the platform wallet.
+ */
+export const userPayments = sqliteTable('user_payments', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    txHash: text('tx_hash').notNull().unique(),
+    amountUsdc: real('amount_usdc').notNull(),
+    creditsAdded: real('credits_added').notNull(),
+    status: text('status', { enum: ['pending', 'verified', 'failed'] }).notNull().default('pending'),
+    chainId: integer('chain_id').notNull().default(8453), // Base mainnet
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    verifiedAt: integer('verified_at', { mode: 'timestamp' }),
+}, (table) => ({
+    userIdx: index('user_payments_user_idx').on(table.userId),
+    txHashIdx: uniqueIndex('user_payments_tx_hash_idx').on(table.txHash),
+    statusIdx: index('user_payments_status_idx').on(table.status),
+}));
+
+/**
+ * Usage Transactions table — log of credit deductions.
+ * actualCost = real infra cost; chargedCost = 2x markup.
+ */
+export const usageTransactions = sqliteTable('usage_transactions', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    action: text('action').notNull(), // e.g. 'think_agent', 'codegen', 'app_create'
+    actualCost: real('actual_cost').notNull(),
+    chargedCost: real('charged_cost').notNull(),
+    creditsBefore: real('credits_before').notNull(),
+    creditsAfter: real('credits_after').notNull(),
+    metadata: text('metadata', { mode: 'json' }),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    userIdx: index('usage_transactions_user_idx').on(table.userId),
+    actionIdx: index('usage_transactions_action_idx').on(table.action),
+    createdIdx: index('usage_transactions_created_idx').on(table.createdAt),
+}));
+
+// ========================================
 // TYPE EXPORTS FOR APPLICATION USE
 // ========================================
 
@@ -673,3 +729,7 @@ export type NewUserModelProvider = typeof userModelProviders.$inferInsert;
 
 export type Star = typeof stars.$inferSelect;
 export type NewStar = typeof stars.$inferInsert;
+
+export type UserCredit = typeof userCredits.$inferSelect;
+export type UserPayment = typeof userPayments.$inferSelect;
+export type UsageTransaction = typeof usageTransactions.$inferSelect;

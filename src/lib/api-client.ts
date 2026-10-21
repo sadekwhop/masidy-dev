@@ -65,6 +65,12 @@ import type{
 	QueryAppTableResponse,
 	WipeAppDatabaseResponse,
 	ListAppBranchesResponse,
+	PaymentWalletData,
+	PaymentBalanceData,
+	VerifyPaymentRequest,
+	VerifyPaymentData,
+	PaymentHistoryData,
+	UsageHistoryData,
 } from '@/api-types';
 import {
 	RateLimitExceededError,
@@ -1385,6 +1391,48 @@ class ApiClient {
 			method: 'PUT',
 			body: { enabled },
 		});
+	}
+
+	// ========================================
+	// USDC PAYMENTS & CREDITS
+	// ========================================
+
+	/**
+	 * Get the platform wallet address for receiving USDC payments.
+	 */
+	async getPaymentWallet(): Promise<ApiResponse<PaymentWalletData>> {
+		return this.request<PaymentWalletData>('/api/payments/wallet');
+	}
+
+	/**
+	 * Get the user's current credit balance and totals.
+	 */
+	async getPaymentBalance(): Promise<ApiResponse<PaymentBalanceData>> {
+		return this.request<PaymentBalanceData>('/api/payments/balance');
+	}
+
+	/**
+	 * Verify a USDC payment on-chain and credit the user's balance.
+	 */
+	async verifyPayment(txHash: string): Promise<ApiResponse<VerifyPaymentData>> {
+		return this.request<VerifyPaymentData>('/api/payments/verify', {
+			method: 'POST',
+			body: { txHash } as VerifyPaymentRequest,
+		});
+	}
+
+	/**
+	 * Get payment (deposit) history.
+	 */
+	async getPaymentHistory(): Promise<ApiResponse<PaymentHistoryData>> {
+		return this.request<PaymentHistoryData>('/api/payments/history');
+	}
+
+	/**
+	 * Get usage history (credit deductions) with aggregation by action.
+	 */
+	async getUsageHistory(): Promise<ApiResponse<UsageHistoryData>> {
+		return this.request<UsageHistoryData>('/api/payments/usage');
 	}
 }
 
