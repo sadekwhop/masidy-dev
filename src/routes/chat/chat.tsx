@@ -999,6 +999,7 @@ function ChatSession() {
 				limitsData,
 				limitsLoading,
 				() => setShowLimitDialog(null),
+				navigate,
 			);
 
 			if (!limitCheck.canProceed) {
@@ -1482,6 +1483,7 @@ function ChatSession() {
 						const limitCheckResult = getBackendLimitDialog(
 							limitsData,
 							() => setBackendErrorDialog({ isOpen: false }),
+							navigate,
 						);
 
 						return limitCheckResult.dialogComponent || null;

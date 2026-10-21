@@ -159,6 +159,7 @@ export default function Home() {
 			limitsData,
 			usageLimitsLoading,
 			() => setShowLimitDialog(null),
+			navigate,
 		);
 
 		if (!limitCheck.canProceed) {
