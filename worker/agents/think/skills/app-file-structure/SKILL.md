@@ -30,14 +30,14 @@ A typical full-stack space project:
 ├── wrangler.json          # required for non-trivial setups
 ├── package.json           # npm deps (text-only packages, see limits below)
 ├── src/
-│   └── index.ts           # server entry: export default { fetch }
+│   └── index.ts           # server entry: export class App extends DurableObject
 └── public/                # static assets directory (configurable)
     ├── index.html
     ├── app.js             # compiled, no JSX
     └── styles.css
 ```
 
-A static-only SPA can skip `src/` entirely — just `wrangler.json` + `public/` is enough as long as `main` points to a minimal pass-through worker or you accept that all requests fall through assets.
+A static-only SPA still needs a `main` module exporting `class App extends DurableObject`; static assets are served before requests reach `App.fetch`.
 
 ## Wrangler config
 
@@ -54,6 +54,8 @@ Minimum viable `wrangler.json`:
   }
 }
 ```
+
+`src/index.ts` must export the named `App` Durable Object class shown below. A default Worker export such as `export default { fetch }` is not supported by the preview loader.
 
 Notes:
 
@@ -370,7 +372,7 @@ Safe and well-tested deps: `hono`, `zod`, `itty-router`, `nanoid`, `valibot`, `@
 
 | Project shape                       | What you need                                                                          |
 | ----------------------------------- | -------------------------------------------------------------------------------------- |
-| Pure static site (HTML+JS+CSS only) | `wrangler.json` with `[assets]`, files in `public/`. No `main`. No App class.          |
+| Pure static site (HTML+JS+CSS only) | `wrangler.json` with `[assets]`, files in `public/`, and a minimal `App` class for the required `main` entry. |
 | SPA + API                           | `[assets]` for the SPA, `main` exporting `class App extends DurableObject`             |
 | API only (JSON, no frontend)        | `main` exporting `class App extends DurableObject`, no `[assets]`                      |
 | Realtime (WebSocket / multiplayer)  | Same as SPA + API; `App.fetch` upgrades to WebSocket and uses `ctx.acceptWebSocket`    |
@@ -379,7 +381,7 @@ Safe and well-tested deps: `hono`, `zod`, `itty-router`, `nanoid`, `valibot`, `@
 
 Run through every item — most "preview is broken" reports trace back to one of these.
 
-- `wrangler.json` exists at repo root with `main` and (if static assets exist) `[assets].directory`.
+- `wrangler.json` exists at repo root with `main` exporting `class App extends DurableObject` and (if static assets exist) `[assets].directory`.
 - Every browser-loaded `.js` / `.mjs` / `<script type="module">` is **plain JS, no JSX**, or wrapped with `@babel/standalone` + `type="text/babel"`.
 - If you use React via importmap (Babel-standalone or pre-compiled with the automatic JSX runtime), the importmap maps **all** of `react`, `react/jsx-runtime`, `react-dom`, and `react-dom/client` — same version on every entry. Missing `react/jsx-runtime` produces `Failed to resolve module specifier "react/jsx-runtime"` and a blank page.
 - The `<script type="importmap">` tag appears **before** any `<script type="module">` (or `type="text/babel" data-type="module"`) that depends on the mapped specifiers.

@@ -149,6 +149,14 @@ The script will also ask for OAuth credentials:
 
 **If you don't provide OAuth credentials, by default at login, you will only be able to use email-based registration/login.**
 
+#### GitHub repository export
+
+GitHub repository export uses a separate OAuth app from GitHub sign-in. Configure
+its callback URL as `https://your-domain.com/api/github-exporter/callback`, then
+set `GITHUB_EXPORTER_CLIENT_ID` and `GITHUB_EXPORTER_CLIENT_SECRET` as secrets on
+the deployed Worker. If these values are missing, export returns a configuration
+error instead of starting the OAuth redirect.
+
 ### Login with Cloudflare
 
 You can let users sign in with their Cloudflare account. The same consent also

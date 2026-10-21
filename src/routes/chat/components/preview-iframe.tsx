@@ -49,6 +49,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 
 		const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 		const hasRequestedRedeployRef = useRef(false);
+		const lastPreviewErrorRef = useRef<string | null>(null);
         const postLoadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 		// ====================================================================
 		// Core Loading Logic
@@ -69,6 +70,14 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
                 console.log('Preview availability test response:', response, response.headers.forEach((value, key) => console.log("Header: ",key, value)));
 
 				if (!response.ok) {
+					const encodedError = response.headers.get('X-Preview-Error');
+					if (encodedError) {
+						try {
+							lastPreviewErrorRef.current = decodeURIComponent(encodedError);
+						} catch {
+							lastPreviewErrorRef.current = encodedError;
+						}
+					}
 					console.log('Preview not ready (status:', response.status, ')');
 					return null;
 				}
@@ -166,7 +175,9 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					status: 'error',
 					attempt,
 					loadedSrc: null,
-					errorMessage: 'Preview failed to load after multiple attempts',
+					errorMessage: lastPreviewErrorRef.current
+						? `Preview failed: ${lastPreviewErrorRef.current}`
+						: 'Preview failed to load after multiple attempts',
 				});
 				return;
 			}
@@ -228,6 +239,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 		const forceReload = useCallback(() => {
 			console.log('Force reloading preview');
 			hasRequestedRedeployRef.current = false;
+			lastPreviewErrorRef.current = null;
 
 			if (retryTimeoutRef.current) {
 				clearTimeout(retryTimeoutRef.current);
@@ -262,6 +274,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 
 			console.log('Preview src changed, starting load:', src);
 			hasRequestedRedeployRef.current = false;
+			lastPreviewErrorRef.current = null;
 
 			if (retryTimeoutRef.current) {
 				clearTimeout(retryTimeoutRef.current);

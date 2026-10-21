@@ -453,6 +453,20 @@ export class GitHubExporterController extends BaseController {
                 this.logger.info('No cached token, initiating OAuth', { agentId: body.agentId });
             }
 
+            const missingOAuthConfig = [
+                !env.GITHUB_EXPORTER_CLIENT_ID && 'GITHUB_EXPORTER_CLIENT_ID',
+                !env.GITHUB_EXPORTER_CLIENT_SECRET && 'GITHUB_EXPORTER_CLIENT_SECRET',
+            ].filter((key): key is string => Boolean(key));
+            if (missingOAuthConfig.length > 0) {
+                this.logger.error('GitHub export OAuth is not configured', {
+                    missing: missingOAuthConfig,
+                });
+                return GitHubExporterController.createErrorResponse(
+                    `GitHub export is not configured. Set ${missingOAuthConfig.join(' and ')} on the Worker, then retry.`,
+                    503,
+                );
+            }
+
             const baseUrl = new URL(request.url).origin;
             const rawReturnUrl = request.headers.get('referer') || `${baseUrl}/chat`;
             const validatedReturnUrl = validateRedirectUrl(rawReturnUrl, request) || `${baseUrl}/chat`;

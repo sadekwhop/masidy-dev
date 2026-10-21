@@ -114,6 +114,29 @@ describe('handleSpacePreview', () => {
 		expect(res.status).toBe(401);
 	});
 
+	it('exposes the authorized preview failure detail to HEAD availability checks', async () => {
+		const env = makeEnv();
+		(env as unknown as { SPACE_DO: { get: () => { fetch: () => Promise<Response> } } }).SPACE_DO.get = () => ({
+			fetch: async () => {
+				throw new Error('Worker Loader could not instantiate generated App');
+			},
+		});
+		const token = await signSpacePreviewToken(env, {
+			spaceName: 'space-a',
+			branch: 'main',
+			userId: 'user-a',
+			previewVersion: 0,
+		});
+		const request = new Request(previewRequest(token), { method: 'HEAD' });
+
+		const res = await handleSpacePreview(request, env, 'space-a', 'main');
+
+		expect(res.status).toBe(503);
+		expect(decodeURIComponent(res.headers.get('X-Preview-Error') ?? '')).toBe(
+			'Worker Loader could not instantiate generated App',
+		);
+	});
+
 	it('returns 401 for a token minted for a different branch', async () => {
 		const env = makeEnv();
 		const token = await signSpacePreviewToken(env, {

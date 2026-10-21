@@ -33,6 +33,7 @@ import { deployThinkBundleToUserAccount } from '../../../services/deployer/think
 import { buildManagedAppDeploymentId, buildManagedAppUrl } from '../../../utils/urls';
 import { resolveCloudflareAccessToken } from '../../../services/rate-limit/usageChecker';
 import type { CloudflareDeploymentErrorCode } from '../../../api/websocketTypes';
+import { getDeployFailureMessage, parseDeployResult } from './deploy-result';
 
 /**
  * Minimal stub shape for the `ThinkAgent` DO (see `worker/agents/think/ThinkAgent.ts`).
@@ -272,9 +273,10 @@ export class ThinkCodingBehavior
 			'',
 			'## Deploy & verify workflow (VibeSDK-specific)',
 			'Once you are actively building (the scope is clear or the user confirmed), this app is previewed on Cloudflare Workers via SpaceDO — there is no shell. In a building turn, do NOT end after only writing files:',
+			'Every project must follow the SpaceDO app contract: the configured `main` module must export a named `App` class that extends `DurableObject` imported from `cloudflare:workers`. Implement request handling in `App.fetch(request)`. Do not use `export default { fetch }` as the server entry. Static assets do not remove this requirement; configure `[assets]` and still provide the `App` class for API/fallback handling. Load the `cloudflare-bundler-apps` skill before creating or changing project files.',
 			'1. After writing or editing files, call `deploy_space` to commit and deploy so the preview rebuilds.',
 			'2. Then call `get_browser_console_logs` to inspect the running preview for client-side errors (JS exceptions, failed fetches, missing assets, hydration errors).',
-			'3. If the deploy reports build errors or the console shows errors, fix the code and repeat from step 1 until the deploy succeeds and the console is clean.',
+			'3. If the deploy reports build errors, read the full error and its details, fix the project (including converting an ordinary Worker default export to the required `App extends DurableObject` entry when needed), then repeat from step 1 until deployment succeeds. If the browser preview fails, inspect the specific preview error before retrying; do not report success while the preview returns an error.',
 			'A building turn should finish with a successful `deploy_space` and a clean `get_browser_console_logs` check.',
 			'',
 			'## Commits & restore points',
@@ -701,15 +703,11 @@ export class ThinkCodingBehavior
 	 * `DEPLOYMENT_FAILED`.
 	 */
 	private async handleDeploySpaceOutput(output: unknown): Promise<void> {
-		let parsed: Record<string, unknown> | undefined;
-		if (typeof output === 'string') {
-			try { parsed = JSON.parse(output) as Record<string, unknown>; } catch { parsed = undefined; }
-		} else if (output && typeof output === 'object') {
-			parsed = output as Record<string, unknown>;
-		}
+		const parsed = parseDeployResult(output);
 
-		if (parsed && typeof parsed.error === 'string') {
-			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, { error: parsed.error });
+		const failureMessage = getDeployFailureMessage(parsed);
+		if (failureMessage) {
+			this.broadcast(WebSocketMessageResponses.DEPLOYMENT_FAILED, { error: failureMessage });
 			return;
 		}
 

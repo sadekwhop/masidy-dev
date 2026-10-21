@@ -60,7 +60,13 @@ async function forwardToSpacePreview(
 		const message = e instanceof Error ? e.message : String(e);
 		return new Response(
 			`Preview not ready: ${message}. Deploy the app, then reload.`,
-			{ status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } },
+			{
+				status: 503,
+				headers: {
+					'Content-Type': 'text/plain; charset=utf-8',
+					'X-Preview-Error': encodeURIComponent(message),
+				},
+			},
 		);
 	}
 }

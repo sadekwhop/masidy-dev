@@ -9,8 +9,17 @@ import AppsPage from './routes/apps';
 import AppView from './routes/app';
 import DiscoverPage from './routes/discover';
 import { ProtectedRoute } from './routes/protected-route';
+import { PrivacyPage, TermsPage } from './routes/legal-pages';
 
 const routes = [
+	{
+		path: '/terms',
+		Component: TermsPage,
+	},
+	{
+		path: '/privacy',
+		Component: PrivacyPage,
+	},
 	{
 		path: '/',
 		Component: App,

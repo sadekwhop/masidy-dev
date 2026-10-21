@@ -404,11 +404,18 @@ export function MainContentPanel(props: MainContentPanelProps) {
 
 	const renderDatabaseView = () => {
 		if (!databaseAvailable || !agentId) return null;
+		const databaseContent = previewAvailable ? (
+			<DatabaseViewer agentId={agentId} enabled={view === 'database'} />
+		) : (
+			<div className="flex h-full items-center justify-center px-6 text-center text-sm text-text-50/60">
+				The app database is available after the preview deploys successfully.
+			</div>
+		);
 		return renderViewWithHeader(
 			<div className="flex items-center gap-2">
 				<span className="text-sm font-mono text-text-50/70">Database</span>
 			</div>,
-			<DatabaseViewer agentId={agentId} enabled={view === 'database'} />,
+			databaseContent,
 		);
 	};
 
