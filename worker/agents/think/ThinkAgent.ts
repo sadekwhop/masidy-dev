@@ -1,6 +1,6 @@
 import { Think } from '@cloudflare/think';
 import type { PrepareStepContext, StepConfig, Session, TurnContext, TurnConfig } from '@cloudflare/think';
-import { createOpenAI } from '@ai-sdk/openai';
+import { createWorkersAI } from 'workers-ai-provider';
 import type { LanguageModel, ToolSet } from 'ai';
 import {
 	createReadTool,
@@ -29,33 +29,21 @@ import { THINK_MODEL_CONFIG } from './model-config';
 
 /**
  * Per-instance configuration pushed into a {@link ThinkAgent} by the host
- * `ThinkCodingBehavior` (which runs in the main worker and therefore has access
- * to VibeSDK's model-config + AI Gateway plumbing). Plain JSON only — it crosses
+ * `ThinkCodingBehavior` (which runs in the main worker and resolves the AI
+ * Gateway configuration). Plain JSON only — it crosses
  * the DO RPC boundary and is persisted via Think's `configure()`/`getConfig()`.
  */
 export interface ThinkAgentConfig {
 	/** Owner — used for usage attribution / logging. */
 	userId: string;
 	/**
-	 * Fully-resolved model coordinates. The behavior computes these from the
-	 * user's `ModelConfig` + AGENT_CONFIG via `getConfigurationForModel`, so
-	 * `getModel()` here is a thin `@ai-sdk/openai` provider over the same
-	 * AI Gateway `/compat` endpoint the rest of the platform uses.
+	 * Workers AI model and gateway. The AI binding handles authentication, so
+	 * this config contains no provider or Cloudflare API credentials.
 	 */
 	model: {
-		baseURL: string;
-		apiKey: string;
 		modelName: string;
+		gatewayId: string;
 		contextSize?: number;
-		headers?: Record<string, string>;
-		/**
-		 * When true, the AI Gateway holds the provider keys (BYOK / stored
-		 * keys). In that mode the request must carry only `cf-aig-authorization`
-		 * and must NOT send a provider `Authorization` header — otherwise the
-		 * forwarded value overrides the gateway's stored key and the provider
-		 * rejects it. `getModel()` strips `Authorization` when this is set.
-		 */
-		useStoredKeys?: boolean;
 	};
 	/** Builder system prompt (assembled host-side; falls back to a default). */
 	systemPrompt?: string;
@@ -71,86 +59,6 @@ const DEFAULT_SYSTEM_PROMPT =
 	'Use the workspace tools to read, write and edit files in the project. Keep changes ' +
 	'minimal and runnable.';
 
-/** Extracts the Gemini thought signature from a `tool_calls[]` entry, if any. */
-function getThoughtSignature(call: unknown): string | undefined {
-	const sig = (call as { extra_content?: { google?: { thought_signature?: unknown } } })
-		?.extra_content?.google?.thought_signature;
-	return typeof sig === 'string' ? sig : undefined;
-}
-
-/**
- * Google's OpenAI-compatible streaming omits the `index` field on each
- * `tool_calls` delta, but the OpenAI provider's chunk schema requires it
- * (`choices[].delta.tool_calls[].index` must be a number). Patch each parsed
- * SSE `data:` line so the AI SDK's zod validation passes, assigning the array
- * position when `index` is absent. Also harvest each tool call's Gemini
- * `thought_signature` (keyed by tool-call id) via `onSignature`, so it can be
- * replayed on later turns (Gemini 3 rejects function-call history that drops
- * it — `400 INVALID_ARGUMENT`).
- */
-function patchToolCallChunk(
-	json: Record<string, unknown>,
-	onSignature: (id: string, signature: string) => void,
-): Record<string, unknown> {
-	const choices = json.choices;
-	if (!Array.isArray(choices)) return json;
-	for (const choice of choices) {
-		const delta = (choice as { delta?: { tool_calls?: unknown } }).delta;
-		const toolCalls = delta?.tool_calls;
-		if (!Array.isArray(toolCalls)) continue;
-		toolCalls.forEach((call, i) => {
-			if (call && typeof call === 'object' && (call as { index?: unknown }).index == null) {
-				(call as { index: number }).index = i;
-			}
-			const id = (call as { id?: unknown })?.id;
-			const sig = getThoughtSignature(call);
-			if (typeof id === 'string' && sig) onSignature(id, sig);
-		});
-	}
-	return json;
-}
-
-/**
- * Rewrites an SSE response body, applying {@link patchToolCallChunk} to each
- * `data:` event. Buffers across network chunks so split JSON lines parse
- * correctly. Non-JSON lines (e.g. `data: [DONE]`) pass through untouched.
- */
-function fixToolCallStream(
-	body: ReadableStream<Uint8Array>,
-	onSignature: (id: string, signature: string) => void,
-): ReadableStream<Uint8Array> {
-	const decoder = new TextDecoder();
-	const encoder = new TextEncoder();
-	let buffer = '';
-	const transformLine = (line: string): string => {
-		const trimmed = line.trimStart();
-		if (!trimmed.startsWith('data:')) return line;
-		const payload = trimmed.slice(5).trim();
-		if (!payload || payload === '[DONE]') return line;
-		try {
-			const json = JSON.parse(payload) as Record<string, unknown>;
-			return `data: ${JSON.stringify(patchToolCallChunk(json, onSignature))}`;
-		} catch {
-			return line;
-		}
-	};
-	return body.pipeThrough(
-		new TransformStream<Uint8Array, Uint8Array>({
-			transform(chunk, controller) {
-				buffer += decoder.decode(chunk, { stream: true });
-				const lines = buffer.split('\n');
-				buffer = lines.pop() ?? '';
-				for (const line of lines) {
-					controller.enqueue(encoder.encode(`${transformLine(line)}\n`));
-				}
-			},
-			flush(controller) {
-				if (buffer) controller.enqueue(encoder.encode(transformLine(buffer)));
-			},
-		}),
-	);
-}
-
 /**
  * ThinkAgent — the `@cloudflare/think` harness. It owns the agentic loop
  * (model ↔ tools), message persistence and streaming; its file tools operate
@@ -163,49 +71,7 @@ export class ThinkAgent extends Think<Env> {
 	/** SpaceDO has no shell; expose only the explicit file tools. */
 	override workspaceBash = false;
 
-	/**
-	 * Gemini thought signatures harvested from streamed tool calls, keyed by
-	 * tool-call id. Re-injected into outgoing request history (the AI SDK drops
-	 * the `extra_content` Google requires for multi-step function calling).
-	 */
-	private readonly thoughtSignatures = new Map<string, string>();
 	private turnUsage: { config: RateLimitSettings; hasCloudflareConfigured: boolean } | null = null;
-
-	/**
-	 * Re-attach harvested Gemini `thought_signature`s to the `tool_calls` in an
-	 * outgoing request body, keyed by tool-call id. No-op if we have none or the
-	 * body isn't the expected chat-completions JSON.
-	 */
-	private injectThoughtSignatures(bodyText: string): string {
-		if (this.thoughtSignatures.size === 0) return bodyText;
-		let json: { messages?: unknown };
-		try {
-			json = JSON.parse(bodyText);
-		} catch {
-			return bodyText;
-		}
-		const messages = json.messages;
-		if (!Array.isArray(messages)) return bodyText;
-		let changed = false;
-		for (const message of messages) {
-			const toolCalls = (message as { tool_calls?: unknown })?.tool_calls;
-			if (!Array.isArray(toolCalls)) continue;
-			for (const call of toolCalls) {
-				const id = (call as { id?: unknown })?.id;
-				if (typeof id !== 'string') continue;
-				if (getThoughtSignature(call)) continue;
-				const sig = this.thoughtSignatures.get(id);
-				if (!sig) continue;
-				const c = call as { extra_content?: { google?: Record<string, unknown> } };
-				c.extra_content = {
-					...(c.extra_content ?? {}),
-					google: { ...(c.extra_content?.google ?? {}), thought_signature: sig },
-				};
-				changed = true;
-			}
-		}
-		return changed ? JSON.stringify(json) : bodyText;
-	}
 
 	private requireConfig(): ThinkAgentConfig {
 		const cfg = this.getConfig<ThinkAgentConfig>();
@@ -224,41 +90,10 @@ export class ThinkAgent extends Think<Env> {
 
 	override getModel(): LanguageModel {
 		const { model } = this.requireConfig();
-		// Wrap fetch to (1) strip the provider `Authorization` header in BYOK /
-		// stored-keys mode (the gateway injects the stored key; a forwarded
-		// header would override it) while preserving `cf-aig-authorization`;
-		// (2) patch the response SSE stream so Google's compat tool-call deltas
-		// (which omit `index`) satisfy the OpenAI provider's chunk schema; and
-		// (3) round-trip Gemini `thought_signature`s — harvest them from the
-		// response and re-inject them into outgoing request history (the AI SDK
-		// drops them, which Gemini 3 rejects with `400 INVALID_ARGUMENT`).
-		const gatewayFetch: typeof fetch = async (input, init) => {
-			const headers = new Headers(init?.headers);
-			if (model.useStoredKeys) headers.delete('authorization');
-			let body = init?.body;
-			if (typeof body === 'string') body = this.injectThoughtSignatures(body);
-			const res = await fetch(input as RequestInfo, { ...(init ?? {}), headers, body });
-			if (!res.body) return res;
-			const outHeaders = new Headers(res.headers);
-			// Body length/encoding change after transforming the stream.
-			outHeaders.delete('content-length');
-			outHeaders.delete('content-encoding');
-			return new Response(
-				fixToolCallStream(res.body, (id, sig) => this.thoughtSignatures.set(id, sig)),
-				{ status: res.status, statusText: res.statusText, headers: outHeaders },
-			);
-		};
-		const provider = createOpenAI({
-			baseURL: model.baseURL,
-			apiKey: model.apiKey,
-			headers: model.headers,
-			fetch: gatewayFetch,
-		});
-		// Use the Chat Completions API (`/compat/chat/completions`), NOT the
-		// default Responses API (`/compat/responses`). VibeSDK's AI Gateway is
-		// exercised via chat-completions everywhere else; the responses path on
-		// the gateway rejects auth (401 AiGatewayError) for these models.
-		return provider.chat(model.modelName);
+		return createWorkersAI({ binding: this.env.AI })(
+			model.modelName,
+			{ gateway: { id: model.gatewayId } },
+		);
 	}
 
 	/**

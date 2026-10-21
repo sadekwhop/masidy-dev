@@ -42,7 +42,7 @@ This interactive script will guide you through the entire setup process, includi
 - **Domain configuration** (custom domain or localhost for development)
 - **Remote setup** (optional production deployment configuration)
 - **AI Gateway configuration** (Cloudflare AI Gateway recommended)
-- **API key collection** (OpenAI, Anthropic, Google AI Studio, etc.)
+- **Optional third-party API keys** (OpenAI, Anthropic, Google AI Studio, etc.)
 - **OAuth setup** (Google, GitHub login - optional)
 - **Resource creation** (KV namespaces, D1 databases, R2 buckets, AI Gateway)
 - **File generation** (`.dev.vars` and optionally `.prod.vars`)
@@ -119,11 +119,15 @@ The setup script offers multiple AI providers with intelligent multi-selection:
 
 ### Important Model Configuration Notes
 
-**Google AI Studio (Recommended):**
-- Default model configurations use Gemini models
-- No additional `worker/agents/inferutils/config.ts` editing required
-- Best compatibility - This is the model used in the official deployment at https://build.cloudflare.dev
-- You can get a free API key from https://aistudio.google.com/
+**Masidy builder model (Cloudflare Workers AI):**
+- The Think-powered Masidy builder uses `@cf/zai-org/glm-4.7-flash` through the Worker's `AI` binding and the configured `CLOUDFLARE_AI_GATEWAY`.
+- This path does not require a Google, OpenAI, or other third-party model API key.
+- Workers AI has a daily free Neurons allocation on eligible accounts; it is not unlimited, and usage beyond that allocation may be billed depending on the account plan and settings.
+- Confirm the model is available and the AI Gateway is configured to use Workers AI billing before relying on the free allocation.
+
+**Other AI-powered features:**
+- Other configured model workflows may still use Google AI Studio, OpenAI, Anthropic, or another provider.
+- Those workflows require provider credentials or a provider key stored in AI Gateway, and may require model configuration in `worker/agents/inferutils/config.ts`.
 
 **Other Providers:**
 - **Strong warning**: You MUST edit `worker/agents/inferutils/config.ts` 

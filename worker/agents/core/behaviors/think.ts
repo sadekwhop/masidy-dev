@@ -24,7 +24,6 @@ import {
 import { isDev } from 'worker/utils/envs';
 import { signSpacePreviewToken } from 'worker/utils/spacePreviewToken';
 import { AppService } from 'worker/database/services/AppService';
-import { getConfigurationForModel } from '../../inferutils/core';
 import type { ThinkAgentConfig } from '../../think/ThinkAgent';
 import { withDurableObjectResetRetry } from '../../think/space-workspace-ops';
 import { THINK_MODEL_CONFIG, THINK_MODEL_ID } from '../../think/model-config';
@@ -212,74 +211,24 @@ export class ThinkCodingBehavior
 		return this.state;
 	}
 
-	/**
-	 * Resolve the AI Gateway model coordinates from VibeSDK's model config and
-	 * push them (plus space name + system prompt) into the ThinkAgent DO.
-	 */
+	/** Push the Workers AI model and gateway configuration into the ThinkAgent DO. */
 	private async configureThinkAgent(): Promise<void> {
-		const inf = this.getInferenceContext();
 		const userId = this.state.metadata.userId;
-
 		const modelName = THINK_MODEL_ID;
 		const aiModelConfig = THINK_MODEL_CONFIG;
-
-		let conf: { baseURL: string; apiKey: string; defaultHeaders?: Record<string, string> };
-		try {
-			conf = await getConfigurationForModel(
-				aiModelConfig,
-				this.env,
-				userId,
-				inf.runtimeOverrides,
-				false, // platform gateway (BYOK key plumbing not forwarded to the child DO)
-				inf.userApiToken,
-				null,
-			);
-		} catch (e) {
-			this.logger.warn('Failed to resolve model gateway config for ThinkAgent', e);
+		const gatewayId = this.env.CLOUDFLARE_AI_GATEWAY;
+		if (!gatewayId) {
+			this.logger.error('CLOUDFLARE_AI_GATEWAY is required to configure ThinkAgent');
 			return;
 		}
-
-		// `getConfigurationForModel` only emits `cf-aig-authorization` when a
-		// *separate* provider key exists (apiKey !== gatewayToken). When it's
-		// absent, the platform has no provider key of its own and relies on the
-		// gateway's stored keys (BYOK) — so authenticate with the gateway token
-		// and let `ThinkAgent.getModel()` drop the provider `Authorization`
-		// header (see `useStoredKeys`).
-		const tokenEnv = this.env as unknown as {
-			CLOUDFLARE_AI_GATEWAY_TOKEN?: string;
-			CLOUDFLARE_API_TOKEN?: string;
-		};
-		const gatewayToken = tokenEnv.CLOUDFLARE_AI_GATEWAY_TOKEN || tokenEnv.CLOUDFLARE_API_TOKEN;
-		const usesStoredKeys = !conf.defaultHeaders?.['cf-aig-authorization'];
-		const headers: Record<string, string> = { ...(conf.defaultHeaders ?? {}) };
-		if (gatewayToken && !headers['cf-aig-authorization']) {
-			headers['cf-aig-authorization'] = `Bearer ${gatewayToken}`;
-		}
-
-		// Target the gateway by account + gateway ID (the `CLOUDFLARE_AI_GATEWAY`
-		// binding), forwarding `CLOUDFLARE_GATEWAY_ID: env.CLOUDFLARE_AI_GATEWAY`.
-		// This deliberately ignores `CLOUDFLARE_AI_GATEWAY_URL` (which may point at a different
-		// gateway/account the platform token isn't authorized for).
-		const env = this.env as unknown as {
-			CLOUDFLARE_ACCOUNT_ID?: string;
-			CLOUDFLARE_AI_GATEWAY?: string;
-		};
-		let baseURL = conf.baseURL;
-		if (env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_AI_GATEWAY) {
-			baseURL = `https://gateway.ai.cloudflare.com/v1/${env.CLOUDFLARE_ACCOUNT_ID}/${env.CLOUDFLARE_AI_GATEWAY}/compat`;
-		}
-
 		const config: ThinkAgentConfig = {
 			userId,
 			model: {
-				baseURL,
-				apiKey: conf.apiKey,
 				modelName,
+				gatewayId,
 				contextSize: aiModelConfig.contextSize,
-				headers: Object.keys(headers).length > 0 ? headers : undefined,
-				useStoredKeys: usesStoredKeys,
 			},
-			systemPrompt: this.buildSystemPrompt(modelName, aiModelConfig.provider),
+			systemPrompt: this.buildSystemPrompt(modelName),
 			previewUrl: await this.getBrowserPreviewURL(0).catch(() => undefined),
 		};
 
@@ -298,9 +247,9 @@ export class ThinkCodingBehavior
 	 * and the VibeSDK-specific deploy→verify workflow, which the generic prompt
 	 * files don't know about — the environment and custom instructions for the run.
 	 */
-	private buildSystemPrompt(modelName: string, provider: string): string {
+	private buildSystemPrompt(modelName: string): string {
 		return [
-			`You are powered by the model named ${modelName}. The exact model ID is ${provider}/${modelName}.`,
+			`You are powered by the model named ${modelName}.`,
 			'<env>',
 			`  Platform: Cloudflare Workers (SpaceDO preview — no shell, no local filesystem)`,
 			`  Today's date: ${new Date().toDateString()}`,

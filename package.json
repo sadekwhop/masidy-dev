@@ -134,6 +134,7 @@
 		"unified": "^11.0.5",
 		"vaul": "^1.1.2",
 		"vite-plugin-svgr": "^4.5.0",
+		"workers-ai-provider": "^3.3.1",
 		"ws": "^8.18.3",
 		"zod": "^4.4.3"
 	},

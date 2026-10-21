@@ -25,7 +25,7 @@ The platform runs the complete workflow on Cloudflare. Think drives the agentic 
 - **Browser verification**: Inspect browser console output, repair runtime errors, and redeploy in the same loop.
 - **Application data**: Give each generated app isolated SQLite-backed storage through a Durable Object Facet, with database inspection and reset controls.
 - **Version history**: Save agent-created restore points in Cloudflare Artifacts and roll back without rewriting existing history.
-- **Model flexibility**: Route configured model providers through AI Gateway with centralized observability and caching.
+- **Model flexibility**: The Masidy builder uses Cloudflare Workers AI (`@cf/zai-org/glm-4.7-flash`) through the AI binding and AI Gateway; other configured providers remain available for other model workflows.
 - **Realtime progress**: Stream agent output, tool activity, file changes, and deployment status to the UI.
 - **Project export**: Export generated projects when you want to continue development outside VibeSDK.
 
@@ -84,10 +84,12 @@ You will need:
 - A Cloudflare account with the required Workers features enabled.
 - A Workers Paid plan for Dynamic Worker previews and Masidy-hosted apps.
 - A Cloudflare API token with access to the resources created by setup.
-- Credentials for at least one supported model provider, unless you use provider keys stored in AI Gateway.
+- No third-party model key is required for the Masidy builder's Workers AI model. Other configured model providers require their own credentials or keys stored in AI Gateway.
 - A custom domain for production. Masidy-hosted apps use `<app-name>.<your-domain>` and require a proxied wildcard DNS record and Worker route.
 
 Authentication providers, model providers, and export integrations are optional and configuration-dependent. See the [complete setup guide](docs/setup.md) for current permissions, DNS, AI Gateway, provider, OAuth, and production configuration.
+
+Workers AI includes a daily free Neurons allocation on eligible accounts. It is usage-limited, not unlimited; usage beyond the free allocation may be billed according to your Cloudflare plan and account settings.
 
 ## Local development
 
