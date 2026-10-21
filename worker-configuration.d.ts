@@ -32,6 +32,10 @@ declare namespace Cloudflare {
 		SPACE_DO: DurableObjectNamespace<import("./worker/index").SpaceDO>;
 		API_RATE_LIMITER: RateLimit;
 		AUTH_RATE_LIMITER: RateLimit;
+		/** mppx signing key — set via: bun wrangler secret put MPP_SECRET_KEY */
+		MPP_SECRET_KEY: string;
+		/** Wallet address that receives MCP tool-call payments */
+		MASIDY_WALLET: string;
 	}
 }
 interface Env extends Cloudflare.Env {}
