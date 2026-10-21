@@ -219,6 +219,7 @@ export function useChat({
 	}, []);
 
 	const sendUserMessage = useCallback((message: string) => {
+		setIsGenerating(true);
 		setMessages(prev => [...prev, createUserMessage(message)]);
 	}, []);
 

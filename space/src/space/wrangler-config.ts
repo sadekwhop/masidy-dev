@@ -51,6 +51,11 @@ function parseJsonConfig(content: string): ParsedWranglerConfig {
   // Strip single-line comments for jsonc support
   const stripped = content.replace(/^\s*\/\/.*$/gm, "")
   const raw = JSON.parse(stripped)
+  if (Array.isArray(raw.d1_databases) && raw.d1_databases.length > 0) {
+    throw new WranglerConfigError(
+      "D1 bindings are not available to generated apps. Use this.ctx.storage.sql for the App's built-in SQLite database; it is also the database shown in the app database viewer.",
+    )
+  }
 
   const cfg: ParsedWranglerConfig = {}
   if (typeof raw.main === "string") cfg.main = raw.main
@@ -132,6 +137,12 @@ function parseDurableObjectsJson(raw: any): ParsedDurableObjectBinding[] | undef
 
 function parseTomlConfig(content: string): ParsedWranglerConfig {
   const cfg: ParsedWranglerConfig = {}
+
+  if (/^\s*\[{1,2}d1_databases\]{1,2}\s*$/m.test(content)) {
+    throw new WranglerConfigError(
+      "D1 bindings are not available to generated apps. Use this.ctx.storage.sql for the App's built-in SQLite database; it is also the database shown in the app database viewer.",
+    )
+  }
 
   // Top-level fields (before any [section])
   cfg.main = extractTomlString(content, "main", true)

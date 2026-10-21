@@ -15,7 +15,7 @@ import { withDurableObjectResetRetry, type SpaceWorkspaceStub } from './space-wo
 const DESCRIPTION = [
 	'Commit the current working tree and deploy a branch so its preview rebuilds and serves the latest code.',
 	'',
-	'Call this after writing/editing files to make changes visible in the preview. Returns the deploy result as JSON, including the preview path and any build errors — read those errors and fix the code if the build failed, then redeploy.',
+	'Call this after writing/editing files to make changes visible in the preview. Deployment validates the app against the SpaceDO runtime contract before publishing it. Returns the deploy result as JSON, including the preview path and any build or runtime-validation errors. Treat errors as your responsibility: inspect the details, fix the project, and retry deployment without asking the user to explain platform requirements.',
 	'',
 	"Defaults to the 'main' branch.",
 ].join('\n');

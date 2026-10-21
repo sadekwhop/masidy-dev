@@ -18,6 +18,7 @@ export interface DeployContext {
   sql: SqlStorage
   git: Git
   fs: FileSystem
+  validateApp?: (bundle: BranchDeploymentBundle) => Promise<void> | void
 }
 
 export interface BranchDeploymentBundle {
@@ -117,6 +118,16 @@ async function deployBranch(
     }, 400)
   }
 
+  try {
+    await validateAppBundle(ctx, bundle)
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e)
+    return jsonResponse({
+      error: "Build failed",
+      details: `SpaceDO preview validation failed: ${message}. The deployment was not published; fix the app entry point and deploy again.`,
+    }, 400)
+  }
+
   const {
     commitHash,
     mainModule,
@@ -135,6 +146,16 @@ async function deployBranch(
     compatibility_date: compatDate,
     deployed_at: new Date(now).toISOString(),
   })
+}
+
+export async function validateAppBundle(
+  ctx: Pick<DeployContext, "validateApp">,
+  bundle: BranchDeploymentBundle,
+): Promise<void> {
+  if (!ctx.validateApp) {
+    throw new Error("App runtime validation is not configured")
+  }
+  await ctx.validateApp(bundle)
 }
 
 export function saveDeploymentBundle(
@@ -171,7 +192,7 @@ export async function buildBranchDeployment(
     wranglerCfg = parseWranglerConfig(files)
   } catch (e) {
     if (e instanceof WranglerConfigError) {
-      throw new Error(`Invalid wrangler.json: ${e.message}`)
+      throw new Error(`Invalid Wrangler configuration: ${e.message}`)
     }
     throw e
   }

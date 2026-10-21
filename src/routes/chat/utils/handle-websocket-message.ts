@@ -984,6 +984,14 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'conversation_response': {
+                if (behaviorType === 'think') {
+                    if (message.isStreaming) {
+                        setIsGenerating(true);
+                    } else if (!message.tool && !message.reasoning) {
+                        setIsGenerating(false);
+                    }
+                }
+
                 // Use concrete conversationId when available; otherwise use placeholder id
                 let conversationId = message.conversationId ?? 'conversation_response';
 
@@ -1143,6 +1151,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'error': {
                 const errorData = message;
+                setIsGenerating(false);
                 
                 logger.info('🚨 Error message received:', {
                     showAsPopup: errorData.showAsPopup,

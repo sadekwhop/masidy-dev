@@ -549,6 +549,12 @@ export class SpaceDO extends DurableObject<Env> {
       sql: this.ctx.storage.sql,
       git: this.git,
       fs: this.fs,
+      validateApp: (bundle) => {
+        this.loadAppClass({
+          ...bundle,
+          assetConfig: bundle.assetConfig ?? {},
+        })
+      },
     }
     const res = await handleDeployCommand(ctx, "deploy", fakeRequest)
     const data = await res.json() as Record<string, unknown>
@@ -922,6 +928,12 @@ export class SpaceDO extends DurableObject<Env> {
         sql: this.ctx.storage.sql,
         git: this.git,
         fs: this.overlay,
+        validateApp: (bundle) => {
+          this.loadAppClass({
+            ...bundle,
+            assetConfig: bundle.assetConfig ?? {},
+          })
+        },
       }
       return handleDeployCommand(deployCtx, cmd, request)
     }

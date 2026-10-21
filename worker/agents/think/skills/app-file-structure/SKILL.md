@@ -21,6 +21,10 @@ Practical consequences:
 - **You cannot rely on root-relative paths inside JS strings**: `fetch("/api/x")`, `new URL("/foo", location.origin)`, dynamic `import("/lib.js")`. These hit the wrong path under the preview prefix. Use relative paths (`./api/x`, `import.meta.url`) or read the base path from `<base href>` / a meta tag injected at build time.
 - The `<base href>` tag is also rewritten if present — using it lets all relative URLs resolve against the preview path.
 
+### Repairing an existing preview
+
+When asked to fix a preview, inspect the current files and the actual deploy/preview error first. Preserve the existing app and make the smallest correction; do not replace it with a new scaffold. This pipeline is JavaScript/TypeScript, not Rust: never add `Cargo.toml`, `build.rs`, or `cargo-bundle`. Limit repair attempts and report the last concrete error if the preview still cannot be verified.
+
 ## Project layout
 
 A typical full-stack space project:
@@ -138,9 +142,9 @@ only sees requests that didn't match an asset. For a SPA, put
 
 ### State and storage
 
-State lives on `this.ctx.storage`. No `env.DB` exists; you do not need
-to declare any binding. The DO's storage is a per-(space, branch)
-SQLite database that survives redeploys.
+State lives on `this.ctx.storage`. No `env.DB` or D1 binding exists; do not
+create D1 migrations, bindings, or a separate table-list endpoint. The app
+database viewer reads this same per-(space, branch) SQLite database.
 
 - `this.ctx.storage.sql.exec(sql, ...params)` — full SQLite. Returns a
   cursor with `.toArray()`, `.one()`, `.columnNames`, etc.

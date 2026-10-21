@@ -42,6 +42,7 @@ import { getDeployFailureMessage, parseDeployResult } from './deploy-result';
 type ThinkAgentStub = {
 	configureVibe: (config: ThinkAgentConfig) => Promise<void>;
 	chat: (userMessage: string, callback: RpcTarget) => Promise<void>;
+	cancelAllChats: () => void;
 	getMessages: () => Promise<UIMessage[]>;
 	clearMessages: () => Promise<void>;
 };
@@ -273,10 +274,11 @@ export class ThinkCodingBehavior
 			'',
 			'## Deploy & verify workflow (VibeSDK-specific)',
 			'Once you are actively building (the scope is clear or the user confirmed), this app is previewed on Cloudflare Workers via SpaceDO — there is no shell. In a building turn, do NOT end after only writing files:',
+			'For a request to fix, restart, or diagnose an existing preview, preserve the existing project. First inspect its files and deployment/preview error, then make the smallest necessary correction. Do not replace the project or invent a new scaffold. This platform uses the JavaScript/TypeScript `@cloudflare/worker-bundler`; never add Rust, Cargo, `build.rs`, or a `cargo-bundle` step. Do not claim a deploy or preview succeeded unless `deploy_space` and `get_browser_console_logs` confirm it. If the connection is lost, stop and report that accurately instead of repeating file operations.',
 			'Every project must follow the SpaceDO app contract: the configured `main` module must export a named `App` class that extends `DurableObject` imported from `cloudflare:workers`. Implement request handling in `App.fetch(request)`. Do not use `export default { fetch }` as the server entry. Static assets do not remove this requirement; configure `[assets]` and still provide the `App` class for API/fallback handling. Load the `cloudflare-bundler-apps` skill before creating or changing project files.',
 			'1. After writing or editing files, call `deploy_space` to commit and deploy so the preview rebuilds.',
 			'2. Then call `get_browser_console_logs` to inspect the running preview for client-side errors (JS exceptions, failed fetches, missing assets, hydration errors).',
-			'3. If the deploy reports build errors, read the full error and its details, fix the project (including converting an ordinary Worker default export to the required `App extends DurableObject` entry when needed), then repeat from step 1 until deployment succeeds. If the browser preview fails, inspect the specific preview error before retrying; do not report success while the preview returns an error.',
+			'3. Deployment validates the SpaceDO runtime contract before publishing. If deployment reports a build or runtime-validation error, treat it as your responsibility: read the full error and details, fix the project (including converting an ordinary Worker default export to the required `App extends DurableObject` entry when needed), then retry from step 1. Make at most 3 fix-and-deploy attempts per user turn; if still failing, stop and report the latest exact error and what remains. Do not ask the user to explain or restate platform requirements. If the browser preview fails, inspect the specific preview error before retrying; do not report success while the preview returns an error.',
 			'A building turn should finish with a successful `deploy_space` and a clean `get_browser_console_logs` check.',
 			'',
 			'## Commits & restore points',
@@ -412,6 +414,17 @@ export class ThinkCodingBehavior
 				},
 			});
 		}
+	}
+
+	async stopGeneration(): Promise<boolean> {
+		this.setState({
+			...this.state,
+			shouldBeGenerating: false,
+			pendingUserInputs: [],
+		});
+		const thinkAgent = await this.getThinkStub();
+		thinkAgent.cancelAllChats();
+		return true;
 	}
 
 	/** Main loop: drain pendingUserInputs by driving the ThinkAgent. */

@@ -140,13 +140,29 @@ export async function handleWebSocketMessage(
                 logger.info('User requested to stop generation');
                 
                 // Cancel current inference operation
-                const wasCancelled = agent.getBehavior().cancelCurrentInference();
+                const behavior = agent.getBehavior() as ReturnType<typeof agent.getBehavior> & {
+                    stopGeneration?: () => Promise<boolean>;
+                };
+                let wasCancelled = behavior.cancelCurrentInference();
                 
                 // Clear shouldBeGenerating flag
                 agent.setState({ 
                     ...agent.state, 
                     shouldBeGenerating: false 
                 });
+
+                try {
+                    if (behavior.stopGeneration) {
+                        wasCancelled = (await behavior.stopGeneration()) || wasCancelled;
+                    }
+                } catch (error) {
+                    logger.error('Failed to stop remote generation', error);
+                    sendError(
+                        connection,
+                        `Failed to stop generation: ${error instanceof Error ? error.message : String(error)}`,
+                    );
+                    return;
+                }
                 
                 sendToConnection(connection, WebSocketMessageResponses.GENERATION_STOPPED, {
                     message: wasCancelled 
