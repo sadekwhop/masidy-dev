@@ -88,6 +88,7 @@ const VERBS: Record<string, VerbSet> = {
 		error: 'Failed to check browser console',
 	},
 	activate_skill: { start: 'Loading skill', success: 'Loaded skill', error: 'Failed to load skill' },
+	consult_specialist_agent: { start: 'Consulting specialist', success: 'Consulted specialist', error: 'Specialist consultation failed' },
 	web_search: { start: 'Searching the web', success: 'Searched the web', error: 'Web search failed' },
 	git: { start: 'Running git', success: 'Ran git', error: 'Git failed' },
 	read_files: { start: 'Reading files', success: 'Read files', error: 'Failed to read files' },
@@ -178,6 +179,10 @@ function detailFor(event: ToolEvent): string | undefined {
 		case 'activate_skill': {
 			const skill = pickString(args, 'skill', 'name', 'id', 'skill_id');
 			return skill;
+		}
+		case 'consult_specialist_agent': {
+			const specialist = pickString(args, 'specialist');
+			return specialist ? `${specialist} specialist` : undefined;
 		}
 		case 'ask_questions': {
 			const questions = args?.questions;

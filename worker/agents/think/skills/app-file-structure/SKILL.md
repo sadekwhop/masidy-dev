@@ -169,6 +169,23 @@ content, settings, anything that should survive a reload. Do not use
 `localStorage` or `sessionStorage` for primary data; they are
 per-browser, per-origin, and lost on incognito or any other browser.
 
+### Full-Stack Authentication & OAuth Integration
+
+When the user asks to add **authentication, login, or OAuth**:
+1. **Always integrate directly into the main application UI** (`public/index.html` or main frontend component). Do NOT create separate documentation (`README.md`, `docker-compose.yml`, `oauth-login.html`, or standalone test suites).
+2. **Database schema**: Create `users` and `sessions` tables in SQLite:
+   ```sql
+   CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT, avatar_url TEXT, created_at INTEGER);
+   CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at INTEGER NOT NULL);
+   ```
+3. **Backend Auth endpoints in `src/index.ts`**:
+   - `POST /api/auth/demo-login`: 1-click test login ("Continue as Demo User" or "Sign in with Google (Demo)"). Returns `{ token, user }`.
+   - `GET /api/auth/session`: Validates `Authorization: Bearer <token>` and returns the active user.
+   - `POST /api/auth/logout`: Deletes session from SQLite.
+   - `GET /api/auth/google`: Full OAuth redirect when `GOOGLE_CLIENT_ID` is present.
+4. **Instant working preview**: Always provide the 1-click instant login button in the UI so the user can test authentication immediately in the preview without needing Google Cloud credentials configured beforehand.
+5. **Always use relative paths in client JS**: `fetch("./api/auth/session")`, NEVER root-relative `/api/...`.
+
 ### WebSockets
 
 The platform forwards `Upgrade: websocket` requests transparently into

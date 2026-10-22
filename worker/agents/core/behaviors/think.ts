@@ -23,6 +23,7 @@ import {
 } from 'worker/utils/urls';
 import { isDev } from 'worker/utils/envs';
 import { signSpacePreviewToken } from 'worker/utils/spacePreviewToken';
+import { signOwnerPreviewToken, OWNER_PREVIEW_QUERY_PARAM } from 'worker/utils/ownerPreviewToken';
 import { AppService } from 'worker/database/services/AppService';
 import type { ThinkAgentConfig } from '../../think/ThinkAgent';
 import { withDurableObjectResetRetry } from '../../think/space-workspace-ops';
@@ -313,6 +314,15 @@ export class ThinkCodingBehavior
 			'',
 			'## Commits & restore points',
 			'Each commit is a restore point the user can roll back to, and YOU decide when to create them. Use the `commit` tool to snapshot a coherent unit of work with a short, descriptive message (e.g. before a risky refactor, or after finishing a feature). You do not need to `commit` right before `deploy_space` — deploying already commits. Do not commit after every tiny edit; group related changes into meaningful restore points.',
+			'',
+			'## Professional Full-Stack Builder Standards (CRITICAL)',
+			'You are an expert, state-of-the-art full-stack web builder (like Lovable, Bolt, v0). Users expect complete, interactive, living web applications:',
+			'1. **INTEGRATE DIRECTLY INTO THE PRIMARY UI**: When the user requests features (e.g. database, authentication, OAuth, forms, shopping cart, dashboard, etc.), ALWAYS build them directly into the primary application files (`/src/index.ts` and `/public/index.html` or client components). NEVER create separate documentation files like `README.md`, `docker-compose.yml`, or standalone test harnesses like `test-api.html` or `oauth-login.html` instead of integrating into the real project.',
+			'2. **CLOUDFLARE DATABASE (Durable Objects SQLite)**: Generated apps have direct, zero-latency access to Cloudflare SQLite via `this.ctx.storage.sql` inside the `App extends DurableObject` class. When the user asks for a database: create the necessary tables in SQLite (`CREATE TABLE IF NOT EXISTS`), expose API endpoints (e.g. `/api/items`), and connect frontend forms/buttons to these endpoints using relative URLs (`fetch("./api/...")`) so the user can interactively create, read, update, and persist real data.',
+			'3. **OAUTH & AUTHENTICATION INTEGRATION**: When authentication or OAuth is requested: add a prominent "Sign In" button in the navigation header, and a sleek modal with Google and email options. In `/src/index.ts`, support real OAuth callback handling AND an immediate 1-click Demo Sign-In ("Sign in with Google (Demo)") that stores a user and session in SQLite, saves the session token to localStorage, transitions the UI to a logged-in state showing the user avatar/name, and provides a "Sign Out" button. This ensures auth works immediately in the browser preview without external API keys!',
+			'4. **SPECIALIST AGENT DELEGATION**: You have the `consult_specialist_agent` tool. Before implementing complex database schemas, backend APIs, security rules, or UI layouts, call `consult_specialist_agent` with "database", "backend", "frontend", "security", or "architect" to get expert implementations via Cloudflare AI Gateway.',
+			'5. **PREVIEW API CALLS MUST USE RELATIVE PATHS**: In browser JavaScript, ALWAYS use relative paths like `fetch("./api/...")` (or `fetch("api/...")`), NEVER root-relative `fetch("/api/...")`. Under the SpaceDO preview prefix (`/space/:name/preview/:branch/`), root-relative `/api` hits the host domain instead of your worker and fails with 401.',
+			'6. **NO DEAD BUTTONS**: Connect all CTA buttons ("Get Started", "Sign In", "Submit") to real functional actions, modals, or API calls so the page feels alive and fully production-ready.',
 		].join('\n');
 	}
 
@@ -1004,10 +1014,25 @@ export class ThinkCodingBehavior
 				this.state.blueprint.title || this.state.projectName || 'app',
 				instanceId,
 			);
-			const deploymentUrl = buildManagedAppUrl(this.env, deploymentId);
-			const updated = await new AppService(this.env).updateDeploymentId(instanceId, deploymentId);
+			let deploymentUrl = buildManagedAppUrl(this.env, deploymentId);
+			const appService = new AppService(this.env);
+			const updated = await appService.updateDeploymentId(instanceId, deploymentId);
 			if (!updated) {
 				throw new Error('The app was published, but Masidy could not save its public URL');
+			}
+
+			// If the app is private, attach the owner preview token so the owner can view it immediately without 404
+			const ownership = await appService.getAppOwnershipByDeploymentId(deploymentId);
+			if (ownership?.visibility === 'private' && ownership.userId && this.env.JWT_SECRET) {
+				try {
+					const token = await signOwnerPreviewToken(this.env, {
+						userId: ownership.userId,
+						deploymentId,
+					});
+					deploymentUrl = `${deploymentUrl}/?${OWNER_PREVIEW_QUERY_PARAM}=${encodeURIComponent(token)}`;
+				} catch (tokenErr) {
+					this.logger.warn('Failed to sign owner preview token for published app', tokenErr);
+				}
 			}
 
 			this.setState({ ...this.state, cloudflareDeploymentUrl: deploymentUrl });
@@ -1056,7 +1081,7 @@ function isLeakedToolCallText(text: string): boolean {
 	if (trimmed.startsWith('<tools>') || trimmed.startsWith('</tools>')) return true;
 	if (
 		trimmed.startsWith('{') &&
-		/"name"\s*:\s*"(activate_skill|read|write|edit|list|find|grep|delete|commit|deploy_space|set_title|ask_questions|get_browser_console_logs|cloudflare_stack_search)"/i.test(trimmed)
+		/"name"\s*:\s*"(activate_skill|consult_specialist_agent|read|write|edit|list|find|grep|delete|commit|deploy_space|set_title|ask_questions|get_browser_console_logs|cloudflare_stack_search)"/i.test(trimmed)
 	) {
 		return true;
 	}

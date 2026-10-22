@@ -84,7 +84,7 @@ import {
 	getDeployGateDialog,
 } from '@/utils/usage-limit-checker';
 import { queryKeys } from '@/lib/query-keys';
-import { ApiError } from '@/lib/api-client';
+import { apiClient, ApiError } from '@/lib/api-client';
 import { capitalizeFirstLetter } from '@/lib/utils';
 import { usePageHeader } from '@/components/layout/header-context';
 
@@ -325,6 +325,26 @@ function ChatSession() {
 		}
 	}, [app, toggleFavorite, toast]);
 
+	const handleOpenLiveView = useCallback(async () => {
+		if (!cloudflareDeploymentUrl) return;
+		if (app?.visibility !== 'private' || !app?.id) {
+			window.open(cloudflareDeploymentUrl, '_blank', 'noopener,noreferrer');
+			return;
+		}
+
+		try {
+			const res = await apiClient.generatePreviewToken(app.id);
+			if (res.success && res.data?.previewUrl) {
+				window.open(res.data.previewUrl, '_blank', 'noopener,noreferrer');
+				return;
+			}
+		} catch (err) {
+			console.error('Failed to generate preview token for live view:', err);
+		}
+
+		window.open(cloudflareDeploymentUrl, '_blank', 'noopener,noreferrer');
+	}, [cloudflareDeploymentUrl, app?.visibility, app?.id]);
+
 	const navigate = useNavigate();
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
@@ -404,13 +424,7 @@ function ChatSession() {
 								<Button
 									variant="ghost"
 									className="h-8 shrink-0 px-2 text-xs text-text-tertiary hover:bg-kumo-elevated hover:text-text-primary"
-									onClick={() =>
-										window.open(
-											cloudflareDeploymentUrl,
-											'_blank',
-											'noopener,noreferrer',
-										)
-									}
+									onClick={handleOpenLiveView}
 								>
 									<ExternalLink className="size-3.5" />
 									View Live

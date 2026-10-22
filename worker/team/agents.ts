@@ -7,8 +7,8 @@ import type { Agent } from './core';
 
 // Model chains: [primary, fallback]
 const CODE = [
-	'@cf/qwen/qwen2.5-coder-32b-instruct',
-	'@cf/moonshotai/kimi-k2.7-code',
+	'@cf/zai-org/glm-4.7-flash',
+	'@cf/meta/llama-3.3-70b-instruct-fp8-fast',
 ];
 const THINK = [
 	'@cf/deepseek-ai/deepseek-r1-distill-qwen-32b',

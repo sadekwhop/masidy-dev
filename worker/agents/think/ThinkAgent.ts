@@ -27,6 +27,7 @@ import { hasCloudflareConfigured } from '../../services/rate-limit/usageChecker'
 import type { RateLimitSettings } from '../../services/rate-limit/config';
 import { THINK_MODEL_CONFIG } from './model-config';
 import { createCloudflareStackTools } from './cloudflare-stack-tools';
+import { createSpecialistAgentTool } from './specialist-agent-tool';
 
 /**
  * Per-instance configuration pushed into a {@link ThinkAgent} by the host
@@ -169,7 +170,8 @@ export class ThinkAgent extends Think<Env> {
 
 	override getTools(): ToolSet {
 		const ops = createSpaceWorkspaceOps(() => this.getSpaceStub());
-		const previewUrl = this.getConfig<ThinkAgentConfig>()?.previewUrl;
+		const config = this.getConfig<ThinkAgentConfig>();
+		const previewUrl = config?.previewUrl;
 		// Same names as Think's built-in workspace tools, so these SpaceDO-backed
 		// versions win the tool-merge. Bash is disabled via `workspaceBash`.
 		return {
@@ -188,6 +190,12 @@ export class ThinkAgent extends Think<Env> {
 			set_title: createSetTitleTool(),
 			// Ask the user clarifying questions via a frontend popup.
 			ask_questions: createAskQuestionsTool(),
+			// Consult specialized subagents via AI Gateway (database, backend, frontend, security, architect, ui_design).
+			consult_specialist_agent: createSpecialistAgentTool({
+				env: this.env,
+				gatewayId: config?.model.gatewayId,
+				userId: config?.userId,
+			}),
 			// Client-side debugging via a real headless browser.
 			get_browser_console_logs: createBrowserConsoleLogsTool({
 				env: this.env,
