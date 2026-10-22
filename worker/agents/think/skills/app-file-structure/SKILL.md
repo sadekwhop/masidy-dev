@@ -88,25 +88,46 @@ ignored. There is no separate worker; the DO is the worker.
 import { DurableObject } from "cloudflare:workers";
 
 export class App extends DurableObject {
+  constructor(ctx: DurableObjectState, env: unknown) {
+    super(ctx, env);
+    this.initDatabase();
+  }
+
+  initDatabase() {
+    // Schema initialization in the constructor ensures tables exist immediately
+    // when the IDE's Database viewer tab inspects SQLite!
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        email TEXT UNIQUE,
+        name TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE TABLE IF NOT EXISTS sessions (
+        token TEXT PRIMARY KEY,
+        user_id TEXT,
+        expires_at DATETIME
+      );
+      CREATE TABLE IF NOT EXISTS leads (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT NOT NULL,
+        source TEXT DEFAULT 'landing_page',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+  }
+
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
-    // Lazy schema init on the first request. Idempotent.
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS notes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        body TEXT NOT NULL
-      )
-    `);
-
-    if (url.pathname === "/api/notes" && request.method === "POST") {
-      const { body } = await request.json<{ body: string }>();
-      this.ctx.storage.sql.exec(`INSERT INTO notes (body) VALUES (?)`, body);
-      return new Response(null, { status: 201 });
+    if (url.pathname === "/api/leads" && request.method === "POST") {
+      const { email, source } = await request.json<{ email: string; source?: string }>();
+      this.ctx.storage.sql.exec(`INSERT INTO leads (email, source) VALUES (?, ?)`, email, source || "landing_page");
+      return Response.json({ ok: true, message: "Thank you for signing up!" }, { status: 201 });
     }
-    if (url.pathname === "/api/notes") {
+    if (url.pathname === "/api/leads") {
       const rows = this.ctx.storage.sql
-        .exec(`SELECT id, body FROM notes ORDER BY id DESC`)
+        .exec(`SELECT id, email, source, created_at FROM leads ORDER BY id DESC`)
         .toArray();
       return Response.json(rows);
     }

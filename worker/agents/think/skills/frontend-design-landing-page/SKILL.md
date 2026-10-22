@@ -3276,3 +3276,245 @@ Gradient fade overlay for scrollable content.
 ```
 
 ---
+
+## FULLSTACK-AUTH-AND-LEADS
+
+Full-stack landing page pattern: Header with dynamic Sign In / Avatar + Sign Out, sleek Auth Modal (Google + Instant 1-Click Demo Login), and Lead Capture CTA connected to SQLite.
+
+### HTML Markup (public/index.html)
+
+```html
+<!-- Navigation Actions (Header) -->
+<div class="nav-actions" id="nav-actions">
+  <div id="auth-logged-out" class="auth-group">
+    <button class="btn btn-secondary btn-sm" id="btn-signin-open">Sign In</button>
+    <button class="btn btn-primary btn-sm" id="btn-cta-nav">Get Started</button>
+  </div>
+  <div id="auth-logged-in" class="auth-group" style="display: none;">
+    <div class="user-badge" id="user-badge">
+      <div class="user-avatar" id="nav-user-avatar">U</div>
+      <span class="user-name" id="nav-user-name">User</span>
+      <button class="btn btn-ghost btn-xs" id="btn-signout" title="Sign Out">Sign Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- Auth Modal -->
+<div id="auth-modal" class="modal-backdrop" style="display: none;">
+  <div class="modal-card">
+    <button class="modal-close" id="auth-modal-close" aria-label="Close">&times;</button>
+    <div class="modal-header">
+      <div class="modal-icon">🔐</div>
+      <h3 class="modal-title">Welcome to Platform</h3>
+      <p class="modal-desc">Sign in to start building and saving your projects.</p>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-oauth btn-google" id="btn-oauth-google">
+        <svg class="oauth-svg" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17Z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.35 24 12 24Z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 9.99 0 12s.45 3.82 1.25 5.42l4.03-3.15Z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98Z"/></svg>
+        <span>Sign in with Google</span>
+      </button>
+      <div class="modal-divider"><span>or</span></div>
+      <button class="btn btn-primary btn-block" id="btn-demo-login">
+        ⚡ Instant 1-Click Demo Login
+      </button>
+    </div>
+    <div class="modal-footer">
+      <small>No password needed. Preview sessions persist in local storage.</small>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast-popup" style="display: none;"></div>
+```
+
+### Complete CSS Styling
+
+```css
+.auth-group { display: flex; align-items: center; gap: 8px; }
+.user-badge { display: flex; align-items: center; gap: 8px; background: rgba(82, 16, 0, 0.05); padding: 4px 10px; border-radius: 9999px; border: 1px solid #EBD5C1; }
+.user-avatar { width: 26px; height: 26px; border-radius: 50%; background: #FF4801; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.user-name { font-size: 13px; font-weight: 600; color: #521000; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.45); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.modal-card { background: #FFFBF5; border: 1px solid #EBD5C1; border-radius: 16px; padding: 28px; width: 90%; max-width: 400px; box-shadow: 0 20px 40px rgba(0,0,0,0.15); position: relative; }
+.modal-close { position: absolute; top: 14px; right: 16px; background: none; border: none; font-size: 24px; color: #521000; opacity: 0.6; cursor: pointer; }
+.modal-close:hover { opacity: 1; }
+.modal-header { text-align: center; margin-bottom: 20px; }
+.modal-icon { font-size: 32px; margin-bottom: 8px; }
+.modal-title { font-size: 20px; font-weight: 700; color: #521000; margin: 0 0 6px; }
+.modal-desc { font-size: 13px; color: rgba(82, 16, 0, 0.65); margin: 0; }
+.modal-actions { display: flex; flex-direction: column; gap: 12px; }
+.btn-oauth { width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 10px 16px; border-radius: 9999px; border: 1px solid #EBD5C1; background: #fff; color: #521000; font-weight: 600; font-size: 14px; cursor: pointer; transition: all 0.15s ease; }
+.btn-oauth:hover { background: #FFFDFB; border-color: #FF4801; }
+.oauth-svg { width: 18px; height: 18px; }
+.modal-divider { text-align: center; position: relative; margin: 4px 0; font-size: 12px; color: rgba(82, 16, 0, 0.4); }
+.modal-divider::before, .modal-divider::after { content: ""; position: absolute; top: 50%; width: 42%; height: 1px; background: #EBD5C1; }
+.modal-divider::before { left: 0; }
+.modal-divider::after { right: 0; }
+.btn-block { width: 100%; }
+.modal-footer { margin-top: 16px; text-align: center; font-size: 11px; color: rgba(82, 16, 0, 0.5); }
+.toast-popup { position: fixed; bottom: 24px; right: 24px; background: #521000; color: #FFFBF5; padding: 12px 20px; border-radius: 9999px; font-size: 14px; font-weight: 600; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 10000; animation: slideUp 0.25s ease; }
+@keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+```
+
+### Self-Contained Client JavaScript
+
+```js
+// Client Auth & Lead Capture Integration
+(function() {
+  function showToast(msg) {
+    var toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    setTimeout(function() { toast.style.display = 'none'; }, 4000);
+  }
+
+  function getStoredToken() {
+    return localStorage.getItem('app_session_token');
+  }
+
+  function setAuthState(user) {
+    var loggedOut = document.getElementById('auth-logged-out');
+    var loggedIn = document.getElementById('auth-logged-in');
+    var avatar = document.getElementById('nav-user-avatar');
+    var name = document.getElementById('nav-user-name');
+    if (user) {
+      if (loggedOut) loggedOut.style.display = 'none';
+      if (loggedIn) loggedIn.style.display = 'flex';
+      if (avatar) avatar.textContent = (user.name || user.email || 'U')[0].toUpperCase();
+      if (name) name.textContent = user.name || user.email.split('@')[0];
+    } else {
+      if (loggedOut) loggedOut.style.display = 'flex';
+      if (loggedIn) loggedIn.style.display = 'none';
+    }
+  }
+
+  function checkSession() {
+    var token = getStoredToken();
+    if (!token) { setAuthState(null); return; }
+    fetch('./api/auth/session', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+      if (data && data.user) {
+        setAuthState(data.user);
+      } else {
+        localStorage.removeItem('app_session_token');
+        setAuthState(null);
+      }
+    })
+    .catch(function() { setAuthState(null); });
+  }
+
+  function openAuthModal() {
+    var modal = document.getElementById('auth-modal');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeAuthModal() {
+    var modal = document.getElementById('auth-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  // Setup event listeners on DOM ready
+  document.addEventListener('DOMContentLoaded', function() {
+    checkSession();
+
+    var openBtn = document.getElementById('btn-signin-open');
+    if (openBtn) openBtn.addEventListener('click', openAuthModal);
+
+    var closeBtn = document.getElementById('auth-modal-close');
+    if (closeBtn) closeBtn.addEventListener('click', closeAuthModal);
+
+    var modal = document.getElementById('auth-modal');
+    if (modal) {
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeAuthModal();
+      });
+    }
+
+    // 1-Click Demo Login
+    var demoBtn = document.getElementById('btn-demo-login');
+    if (demoBtn) {
+      demoBtn.addEventListener('click', function() {
+        demoBtn.disabled = true;
+        demoBtn.textContent = 'Signing in...';
+        fetch('./api/auth/demo-login', { method: 'POST' })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            demoBtn.disabled = false;
+            demoBtn.textContent = '⚡ Instant 1-Click Demo Login';
+            if (data && data.token && data.user) {
+              localStorage.setItem('app_session_token', data.token);
+              setAuthState(data.user);
+              closeAuthModal();
+              showToast('🎉 Signed in as ' + (data.user.name || data.user.email) + '!');
+            }
+          })
+          .catch(function() {
+            demoBtn.disabled = false;
+            demoBtn.textContent = '⚡ Instant 1-Click Demo Login';
+            showToast('Sign in failed. Please try again.');
+          });
+      });
+    }
+
+    // Google Sign-In button
+    var googleBtn = document.getElementById('btn-oauth-google');
+    if (googleBtn) {
+      googleBtn.addEventListener('click', function() {
+        // Fallback to demo login if Google credentials not configured
+        if (demoBtn) demoBtn.click();
+      });
+    }
+
+    // Sign Out
+    var signoutBtn = document.getElementById('btn-signout');
+    if (signoutBtn) {
+      signoutBtn.addEventListener('click', function() {
+        var token = getStoredToken();
+        localStorage.removeItem('app_session_token');
+        setAuthState(null);
+        showToast('Signed out successfully.');
+        if (token) {
+          fetch('./api/auth/logout', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + token }
+          }).catch(function() {});
+        }
+      });
+    }
+
+    // Connect CTAs ("Start building", "Get Started")
+    document.querySelectorAll('[data-cta-button], #btn-cta-nav, #btn-cta-hero, .btn-primary').forEach(function(btn) {
+      if (btn.id === 'btn-demo-login' || btn.closest('#auth-modal')) return;
+      btn.addEventListener('click', function(e) {
+        var token = getStoredToken();
+        if (!token) {
+          e.preventDefault();
+          openAuthModal();
+        } else {
+          // User already logged in, save lead and show confirmation
+          fetch('./api/leads', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ source: 'cta_click' })
+          })
+          .then(function(res) { return res.json(); })
+          .then(function(data) {
+            showToast(data.message || '🎉 Welcome aboard! You can now start building.');
+          })
+          .catch(function() {
+            showToast('🎉 Welcome aboard! You can now start building.');
+          });
+        }
+      });
+    });
+  });
+})();
+```

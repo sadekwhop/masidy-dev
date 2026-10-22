@@ -185,7 +185,10 @@ export class ThinkAgent extends Think<Env> {
 			// Save a restore point without deploying. The model decides when.
 			commit: createCommitTool({ getStub: () => this.getSpaceStub() }),
 			// Commit + deploy the SpaceDO branch so the preview rebuilds.
-			deploy_space: createDeploySpaceTool({ getStub: () => this.getSpaceStub() }),
+			deploy_space: createDeploySpaceTool({
+				getStub: () => this.getSpaceStub(),
+				getPreviewUrl: () => previewUrl,
+			}),
 			// Set the project's short display title (host observes the output).
 			set_title: createSetTitleTool(),
 			// Ask the user clarifying questions via a frontend popup.

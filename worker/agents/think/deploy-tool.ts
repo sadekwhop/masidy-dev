@@ -20,8 +20,11 @@ const DESCRIPTION = [
 	"Defaults to the 'main' branch.",
 ].join('\n');
 
-export function createDeploySpaceTool(opts: { getStub: () => SpaceWorkspaceStub }): Tool {
-	const { getStub } = opts;
+export function createDeploySpaceTool(opts: {
+	getStub: () => SpaceWorkspaceStub;
+	getPreviewUrl?: () => string | undefined;
+}): Tool {
+	const { getStub, getPreviewUrl } = opts;
 	return tool({
 		description: DESCRIPTION,
 		inputSchema: z.object({
@@ -41,7 +44,12 @@ export function createDeploySpaceTool(opts: { getStub: () => SpaceWorkspaceStub 
 			}
 			try {
 				const result = await withDurableObjectResetRetry(getStub, (stub) => stub.deploy(branch));
-				return JSON.stringify({ branch, ...(result as Record<string, unknown>) }, null, 2);
+				const output: Record<string, unknown> = { branch, ...(result as Record<string, unknown>) };
+				const signedUrl = getPreviewUrl?.();
+				if (signedUrl) {
+					output.preview_url = signedUrl;
+				}
+				return JSON.stringify(output, null, 2);
 			} catch (e) {
 				return JSON.stringify({
 					branch,

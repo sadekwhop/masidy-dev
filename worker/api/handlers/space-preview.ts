@@ -2,6 +2,7 @@ import {
 	buildPreviewCookie,
 	readPreviewCookie,
 	verifySpacePreviewToken,
+	signSpacePreviewToken,
 	type SpacePreviewClaims,
 } from '../../utils/spacePreviewToken';
 import { isSeparatePreviewDomain } from '../../utils/urls';
@@ -10,6 +11,7 @@ import { RateLimitService } from '../../services/rate-limit/rateLimits';
 import { getGlobalConfigurableSettings } from '../../config';
 import { RateLimitExceededError } from 'shared/types/errors';
 import { JWTUtils } from '../../utils/jwtUtils';
+import { authMiddleware } from '../../middleware/auth/auth';
 
 const SPACE_PREVIEW_ROUTE_PATTERN = /^\/space\/([^/]+)\/preview\/([^/]+)(?:\/.*)?$/;
 
@@ -172,6 +174,37 @@ export async function handleSpacePreview(
 			);
 			return withCookie;
 		}
+	}
+
+	// 3. User is authenticated in Masidy and owns the app, or the app is public
+	try {
+		const userSession = await authMiddleware(request, env);
+		const appService = new AppService(env);
+		if (typeof appService.checkAppOwnership === 'function') {
+			const userId = userSession?.user?.id ?? '';
+			const ownership = await appService.checkAppOwnership(spaceName, userId);
+			if (ownership.exists && (ownership.isOwner || ownership.visibility === 'public')) {
+				const previewVersion = (await appService.getPreviewVersion(spaceName)) ?? 0;
+				const newCookieToken = await signSpacePreviewToken(env, {
+					spaceName,
+					branch,
+					userId: userSession?.user?.id ?? 'public',
+					previewVersion,
+				});
+				const response = await forwardToSpacePreview(request, env, spaceName);
+				if (isWebSocketResponse(response)) {
+					return response;
+				}
+				const withCookie = new Response(response.body, response);
+				withCookie.headers.append(
+					'Set-Cookie',
+					buildPreviewCookie({ token: newCookieToken, spaceName, branch, crossSite, secure }),
+				);
+				return withCookie;
+			}
+		}
+	} catch {
+		// Fall through to 401
 	}
 
 	if (queryToken || cookieToken) {

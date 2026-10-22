@@ -960,6 +960,25 @@ function rewritePreviewResponse(response: Response, basePath: string): Response 
   const ct = response.headers.get("content-type") ?? ""
   if (!ct.includes("text/html")) return response
 
+  const prefixScript = `<script>
+(function() {
+  var b = ${JSON.stringify(basePath)};
+  window.__MASIDY_PREVIEW_BASE__ = b;
+  var origFetch = window.fetch;
+  if (origFetch) {
+    window.fetch = function(resource, init) {
+      if (typeof resource === 'string' && resource.startsWith('/') && !resource.startsWith(b)) {
+        resource = b + resource;
+      } else if (resource && typeof resource.url === 'string' && resource.url.startsWith('/') && !resource.url.startsWith(b)) {
+        resource = new Request(b + resource.url, resource);
+      }
+      return origFetch.call(this, resource, init);
+    };
+  }
+})();
+</script>`
+
+  let injected = false
   // Use HTMLRewriter to prefix root-relative src/href/action attributes
   return new HTMLRewriter()
     .on("[src],[href],[action]", {
@@ -969,6 +988,20 @@ function rewritePreviewResponse(response: Response, basePath: string): Response 
           if (val?.startsWith("/") && !val.startsWith("//")) {
             el.setAttribute(attr, basePath + val)
           }
+        }
+      },
+    })
+    .on("head", {
+      element(el) {
+        el.prepend(prefixScript, { html: true })
+        injected = true
+      },
+    })
+    .on("body", {
+      element(el) {
+        if (!injected) {
+          el.prepend(prefixScript, { html: true })
+          injected = true
         }
       },
     })
