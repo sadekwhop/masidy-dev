@@ -67,7 +67,7 @@ export function createBrowserConsoleLogsTool(opts: { env: Env; defaultUrl?: stri
 			try {
 				result = await client.captureConsoleLogs({
 					url: targetUrl,
-					waitSeconds: Math.min(Math.max(args.wait_seconds ?? 5, 0), 25),
+					waitSeconds: Math.min(Math.max(args.wait_seconds ?? 2, 0), 25),
 					viewport: { width: 1280, height: 800 },
 					interactScript: args.interact_script,
 				});

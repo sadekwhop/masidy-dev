@@ -52,17 +52,12 @@ function __vibeQuote(name) {
 
 export class App extends __VIBE_UserApp {
   async __vibeInspectListTables() {
+    const sql = this.ctx.storage.sql
     for (const m of ["initDatabase", "initDb", "init", "setupDb", "ensureSchema"]) {
       if (typeof this[m] === "function") {
-        try { await this[m](); break; } catch {}
+        try { this[m](); break; } catch {}
       }
     }
-    if (typeof this.fetch === "function") {
-      try {
-        await this.fetch(new Request("http://internal/__vibe_ping__"));
-      } catch {}
-    }
-    const sql = this.ctx.storage.sql
     const tableRows = sql.exec(
       "SELECT name FROM sqlite_master " +
       "WHERE type = 'table' " +

@@ -20,8 +20,8 @@
 		"artifacts-viewer/server/cache": "./packages/artifacts-viewer/packages/artifacts-viewer/src/server/cache-adapters.ts"
 	},
 	// Bumped for Durable Object Facets (see wrangler.jsonc for context).
-	"compatibility_date": "2026-05-23",
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": ["nodejs_compat", "durable_object_io_tasks_prevent_eviction"],
 	// Preserve dashboard-managed vars on deploy so dashboard-only settings
 	// (e.g. ENABLE_ARTIFACTS and ENABLE_READ_REPLICAS) are not deleted by `wrangler deploy`.
 	"keep_vars": true,
