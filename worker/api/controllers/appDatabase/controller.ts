@@ -104,7 +104,25 @@ export class AppDatabaseController extends BaseController {
 				agentId,
 				params.get('branch') ?? undefined,
 			);
-			const tables = await stub.listAppTables(branch);
+			let tables: AppDatabaseTable[];
+			try {
+				tables = await stub.listAppTables(branch);
+			} catch (err: any) {
+				if (
+					err?.message?.includes('no longer active') ||
+					err?.message?.includes('Connection closed') ||
+					err?.message?.includes('reset')
+				) {
+					const fresh = (await this.resolveSpaceContext(
+						env,
+						agentId,
+						params.get('branch') ?? undefined,
+					)).stub;
+					tables = await fresh.listAppTables(branch);
+				} else {
+					throw err;
+				}
+			}
 			return this.createSuccessResponse<ListAppTablesResponse>({ branch, tables });
 		} catch (e) {
 			return this.handleError(e, 'list app tables') as ControllerResponse<
@@ -155,12 +173,35 @@ export class AppDatabaseController extends BaseController {
 				agentId,
 				params.get('branch') ?? undefined,
 			);
-			const result = await stub.queryAppTable(branch, table, {
-				limit,
-				offset,
-				orderBy,
-				orderDir,
-			});
+			let result: AppDatabaseReadResult;
+			try {
+				result = await stub.queryAppTable(branch, table, {
+					limit,
+					offset,
+					orderBy,
+					orderDir,
+				});
+			} catch (err: any) {
+				if (
+					err?.message?.includes('no longer active') ||
+					err?.message?.includes('Connection closed') ||
+					err?.message?.includes('reset')
+				) {
+					const fresh = (await this.resolveSpaceContext(
+						env,
+						agentId,
+						params.get('branch') ?? undefined,
+					)).stub;
+					result = await fresh.queryAppTable(branch, table, {
+						limit,
+						offset,
+						orderBy,
+						orderDir,
+					});
+				} else {
+					throw err;
+				}
+			}
 			return this.createSuccessResponse<QueryAppTableResponse>({
 				branch,
 				table,

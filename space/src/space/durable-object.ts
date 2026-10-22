@@ -561,7 +561,12 @@ export class SpaceDO extends DurableObject<Env> {
     const spaceName = this.ctx.id.name ?? "space"
     data.preview_url = `/space/${spaceName}/preview/${encodeURIComponent(branch)}/`
 
-    if (!data.error) await this.backend.push(branch)
+    if (!data.error) {
+      await this.backend.push(branch)
+      try {
+        this.ctx.facets.delete(facetNameForApp(branch))
+      } catch {}
+    }
 
     return data
   }
@@ -840,11 +845,29 @@ export class SpaceDO extends DurableObject<Env> {
 
   async listAppTables(branch: string): Promise<AppDatabaseTable[]> {
     await this.ensureInit()
-    const facet = this.getAppFacet(branch)
-    if (!facet) return []
-    return await (facet as unknown as {
-      __vibeInspectListTables: () => Promise<AppDatabaseTable[]>
-    }).__vibeInspectListTables()
+    try {
+      const facet = this.getAppFacet(branch)
+      if (!facet) return []
+      return await (facet as unknown as {
+        __vibeInspectListTables: () => Promise<AppDatabaseTable[]>
+      }).__vibeInspectListTables()
+    } catch (e: any) {
+      if (
+        e?.message?.includes("no longer active") ||
+        e?.message?.includes("Connection closed") ||
+        e?.message?.includes("reset")
+      ) {
+        try {
+          this.ctx.facets.delete(facetNameForApp(branch))
+        } catch {}
+        const freshFacet = this.getAppFacet(branch)
+        if (!freshFacet) return []
+        return await (freshFacet as unknown as {
+          __vibeInspectListTables: () => Promise<AppDatabaseTable[]>
+        }).__vibeInspectListTables()
+      }
+      throw e
+    }
   }
 
   async queryAppTable(
@@ -853,16 +876,37 @@ export class SpaceDO extends DurableObject<Env> {
     opts: AppTableQueryOpts = {},
   ): Promise<AppDatabaseReadResult> {
     await this.ensureInit()
-    const facet = this.getAppFacet(branch)
-    if (!facet) {
-      return { columns: [], rows: [], totalCount: 0 }
+    try {
+      const facet = this.getAppFacet(branch)
+      if (!facet) {
+        return { columns: [], rows: [], totalCount: 0 }
+      }
+      return await (facet as unknown as {
+        __vibeInspectRead: (
+          table: string,
+          opts: AppTableQueryOpts,
+        ) => Promise<AppDatabaseReadResult>
+      }).__vibeInspectRead(table, opts)
+    } catch (e: any) {
+      if (
+        e?.message?.includes("no longer active") ||
+        e?.message?.includes("Connection closed") ||
+        e?.message?.includes("reset")
+      ) {
+        try {
+          this.ctx.facets.delete(facetNameForApp(branch))
+        } catch {}
+        const freshFacet = this.getAppFacet(branch)
+        if (!freshFacet) return { columns: [], rows: [], totalCount: 0 }
+        return await (freshFacet as unknown as {
+          __vibeInspectRead: (
+            table: string,
+            opts: AppTableQueryOpts,
+          ) => Promise<AppDatabaseReadResult>
+        }).__vibeInspectRead(table, opts)
+      }
+      throw e
     }
-    return await (facet as unknown as {
-      __vibeInspectRead: (
-        table: string,
-        opts: AppTableQueryOpts,
-      ) => Promise<AppDatabaseReadResult>
-    }).__vibeInspectRead(table, opts)
   }
 
   /**

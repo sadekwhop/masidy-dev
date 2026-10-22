@@ -48,7 +48,7 @@ function isFileInfo(value: FileInfo | null): value is FileInfo {
  */
 export function isDurableObjectResetError(error: unknown): boolean {
 	const message = error instanceof Error ? error.message : String(error);
-	return /reset because its code was updated|Durable Object .*(reset|restarted)/i.test(message);
+	return /reset because its code was updated|Durable Object .*(reset|restarted)|no longer active|Connection closed|connection lost/i.test(message);
 }
 
 /**
