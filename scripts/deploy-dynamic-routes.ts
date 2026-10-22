@@ -57,17 +57,17 @@ const API_TOKEN = getApiToken();
 const ROUTES_TO_DEPLOY: RouteConfig[] = [
   {
     name: 'masidy-code',
-    description: 'Specialized code generation & analysis',
+    description: 'Specialized code generation & analysis with native tool calling',
     primary: {
       provider: 'workers-ai',
-      model: '@cf/qwen/qwen2.5-coder-32b-instruct',
+      model: '@cf/zai-org/glm-4.7-flash',
       timeout: 45000,
       retries: 2,
     },
     fallback: {
       provider: 'workers-ai',
-      model: '@cf/zai-org/glm-4.7-flash',
-      timeout: 60000,
+      model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      timeout: 30000,
       retries: 1,
     },
   },

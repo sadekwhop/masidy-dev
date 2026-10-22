@@ -533,7 +533,7 @@ export class ThinkCodingBehavior
 			}
 			// Think's non-streaming finalize: the FE replaces content with this
 			// terminal payload, so only send it when we actually accumulated text.
-			if (accumulated.text) {
+			if (accumulated.text && !isLeakedToolCallText(accumulated.text)) {
 				this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
 					message: accumulated.text,
 					conversationId,
@@ -556,12 +556,14 @@ export class ThinkCodingBehavior
 				const delta = (chunk as { delta?: string }).delta;
 				if (typeof delta === 'string' && delta.length > 0) {
 					accumulated.text += delta;
-					this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
-						message: delta,
-						conversationId,
-						isStreaming: true,
-						isDelta: true,
-					});
+					if (!isLeakedToolCallText(accumulated.text) && !isLeakedToolCallText(delta)) {
+						this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+							message: delta,
+							conversationId,
+							isStreaming: true,
+							isDelta: true,
+						});
+					}
 				}
 				return;
 			}
@@ -1047,4 +1049,16 @@ function isFileWriteTool(name: string): boolean {
 function isFileDeleteTool(name: string): boolean {
 	const n = name.toLowerCase();
 	return n === 'delete' || n === 'rm' || n === 'remove';
+}
+
+function isLeakedToolCallText(text: string): boolean {
+	const trimmed = text.trim();
+	if (trimmed.startsWith('<tools>') || trimmed.startsWith('</tools>')) return true;
+	if (
+		trimmed.startsWith('{') &&
+		/"name"\s*:\s*"(activate_skill|read|write|edit|list|find|grep|delete|commit|deploy_space|set_title|ask_questions|get_browser_console_logs|cloudflare_stack_search)"/i.test(trimmed)
+	) {
+		return true;
+	}
+	return false;
 }

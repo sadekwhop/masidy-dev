@@ -31,8 +31,8 @@ export interface AgentDef {
 export const AGENTS: Record<AgentName, AgentDef> = {
 	code: {
 		routeName: 'masidy-code',
-		primaryModelId: '@cf/qwen/qwen2.5-coder-32b-instruct',
-		fallbackModelId: '@cf/moonshotai/kimi-k2.7-code',
+		primaryModelId: '@cf/zai-org/glm-4.7-flash',
+		fallbackModelId: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
 		system: 'You are a senior software engineer. Return correct, minimal code with brief explanations.',
 		timeoutMs: 45_000,
 	},
