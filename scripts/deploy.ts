@@ -2245,7 +2245,11 @@ class CloudflareDeploymentManager {
 }
 
 // Main execution
-if (import.meta.url === `file://${process.argv[1]}`) {
+const isMain = process.argv[1] && (
+	import.meta.url === `file://${process.argv[1]}` ||
+	import.meta.url.toLowerCase() === `file:///${process.argv[1].replace(/\\/g, '/')}`.toLowerCase()
+);
+if (isMain) {
 	const deployer = new CloudflareDeploymentManager();
 	deployer.deploy().catch((error) => {
 		console.error('Unexpected error:', error);
