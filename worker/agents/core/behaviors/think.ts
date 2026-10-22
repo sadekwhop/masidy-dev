@@ -270,6 +270,18 @@ export class ThinkCodingBehavior
 	 * files don't know about — the environment and custom instructions for the run.
 	 */
 	private buildSystemPrompt(modelName: string): string {
+		const lastUserMsg =
+			this.state.pendingUserInputs?.at(-1) ??
+			this.state.query ??
+			'';
+		const hasUserAnswered =
+			/here are my answers|q:.*a:|answer/i.test(typeof lastUserMsg === 'string' ? lastUserMsg : '') ||
+			this.isMVPGenerated();
+
+		const clarifyInstruction = hasUserAnswered
+			? 'The user has ALREADY provided their requirements and answers. DO NOT call `ask_questions` under any circumstances. Proceed IMMEDIATELY to plan, create files, implement the solution, and deploy.'
+			: 'If the user states a desired product or concept (e.g. "landing page", "dashboard", "contact form", "portfolio", "store", "calculator"), DO NOT ask clarifying questions — make attractive, modern, state-of-the-art design choices and start building immediately. Only call `ask_questions` if the request is completely blank or just punctuation (like "?"), and call it at most ONCE. If you already asked questions once, never ask again.';
+
 		return [
 			`You are powered by the model named ${modelName}.`,
 			'<env>',
@@ -287,11 +299,8 @@ export class ThinkCodingBehavior
 			'If this project does not yet have a clear name (e.g. the request is a long or vague description rather than a concise product name), call the `set_title` tool once, early, with a short human-friendly title (Title Case, under ~60 characters). Skip it if a good title already exists; do not rename on every turn.',
 			'',
 			'## Clarify before building',
-			'If the request is underspecified or ambiguous (e.g. a one-line idea with no details on features, scope, data, or design), do NOT start writing files yet. Instead, on this turn:',
-			'1. Briefly state the assumptions you would make to proceed.',
-			'2. Call the `ask_questions` tool with all the concise, targeted clarifying questions you need answered. Each question can include predefined options and can allow multiple selections and/or a custom free-text answer.',
-			'3. End your turn after calling `ask_questions`. Do not write/edit files or deploy until the scope is clear or the user tells you to proceed with your assumptions.',
-			'If the request is already clear and specific, skip this and go straight to building.',
+			clarifyInstruction,
+			'If the request is already clear or answers are present, skip this and go straight to building.',
 			'',
 			'## Deploy & verify workflow (VibeSDK-specific)',
 			'Once you are actively building (the scope is clear or the user confirmed), this app is previewed on Cloudflare Workers via SpaceDO — there is no shell. In a building turn, do NOT end after only writing files:',

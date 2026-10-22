@@ -17,7 +17,7 @@ const DESCRIPTION = [
 	'',
 	'Each question can provide predefined answer options, allow multiple selections, and/or allow a free-text custom answer. The user can also skip the popup entirely.',
 	'',
-	'Call this tool once with all the questions you need answered, then end your turn and wait for the user. Do not write or edit files until the scope is clear or the user tells you to proceed with your assumptions.',
+	'Call this tool AT MOST ONCE with all the questions you need answered, then end your turn and wait for the user. Do NOT call this tool if the user has already provided answers or if the product type is already clear.',
 ].join('\n');
 
 export type ClarifyingQuestion = {
@@ -27,32 +27,59 @@ export type ClarifyingQuestion = {
 	allow_custom?: boolean;
 };
 
+const QuestionItemSchema = z.union([
+	z.string().transform((q) => ({ question: q, options: [], allow_multiple: false, allow_custom: true })),
+	z.object({
+		question: z.string().optional().default('What would you like to build?'),
+		options: z
+			.union([
+				z.array(z.string()),
+				z.string().transform((s) => s.split(',').map((x) => x.trim()).filter(Boolean)),
+			])
+			.optional(),
+		allow_multiple: z.boolean().optional(),
+		allow_custom: z.boolean().optional(),
+	}),
+]);
+
+const FlexibleAskQuestionsSchema = z
+	.object({
+		questions: z.array(QuestionItemSchema).optional(),
+		question: z.string().optional(),
+		options: z
+			.union([
+				z.array(z.string()),
+				z.string().transform((s) => s.split(',').map((x) => x.trim()).filter(Boolean)),
+			])
+			.optional(),
+		allow_multiple: z.boolean().optional(),
+		allow_custom: z.boolean().optional(),
+	})
+	.passthrough()
+	.transform((val) => {
+		let list: ClarifyingQuestion[] = [];
+		if (Array.isArray(val.questions) && val.questions.length > 0) {
+			list = val.questions as ClarifyingQuestion[];
+		} else if (val.question) {
+			list = [
+				{
+					question: val.question,
+					options: Array.isArray(val.options) ? val.options : undefined,
+					allow_multiple: val.allow_multiple,
+					allow_custom: val.allow_custom,
+				},
+			];
+		}
+		return { questions: list };
+	});
+
 export function createAskQuestionsTool(): Tool {
 	return tool({
 		description: DESCRIPTION,
-		inputSchema: z.object({
-			questions: z
-				.array(
-					z.object({
-						question: z.string().describe('The clarifying question to ask the user.'),
-						options: z
-							.array(z.string())
-							.optional()
-							.describe('Predefined answer options the user can choose from.'),
-						allow_multiple: z
-							.boolean()
-							.optional()
-							.describe('When true, the user may select more than one predefined option.'),
-						allow_custom: z
-							.boolean()
-							.optional()
-							.describe('When true, the user may enter a free-text answer not in options.'),
-					}),
-				)
-				.describe('One or more clarifying questions to present to the user.'),
-		}),
-		execute: async (args: { questions: ClarifyingQuestion[] }) => {
-			const questions = Array.isArray(args.questions) ? args.questions : [];
+		inputSchema: FlexibleAskQuestionsSchema,
+		execute: async (rawArgs: unknown) => {
+			const parsed = rawArgs as { questions?: ClarifyingQuestion[] };
+			const questions = Array.isArray(parsed?.questions) ? parsed.questions : [];
 			return JSON.stringify({ ok: true, questions });
 		},
 	});
