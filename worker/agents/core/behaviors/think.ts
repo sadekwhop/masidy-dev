@@ -26,7 +26,7 @@ import { signSpacePreviewToken } from 'worker/utils/spacePreviewToken';
 import { AppService } from 'worker/database/services/AppService';
 import type { ThinkAgentConfig } from '../../think/ThinkAgent';
 import { withDurableObjectResetRetry } from '../../think/space-workspace-ops';
-import { THINK_MODEL_CONFIG } from '../../think/model-config';
+import { THINK_MODEL_CONFIG, THINK_MODEL_ID } from '../../think/model-config';
 import { resolveAgent } from '../../router/agents';
 import type { BranchDeploymentBundle } from '@space-do/space';
 import { CloudflareAccountService } from '../../../services/cloudflare/CloudflareAccountService';
@@ -233,17 +233,18 @@ export class ThinkCodingBehavior
 
 		const agent = resolveAgent(typeof lastUserMsg === 'string' ? lastUserMsg : '');
 
-		this.logger.info(`Router selected agent: ${agent.name} (route: ${agent.routeName})`, { userId });
+		const dynamicRouteName = this.env.CLOUDFLARE_AI_GATEWAY_ROUTE?.trim();
+		const modelName = agent.primaryModelId || THINK_MODEL_ID;
 
 		const config: ThinkAgentConfig = {
 			userId,
 			model: {
-				modelName: agent.primaryModelId,
+				modelName,
 				gatewayId,
-				dynamicRouteName: agent.routeName,
+				...(dynamicRouteName ? { dynamicRouteName } : {}),
 				contextSize: THINK_MODEL_CONFIG.contextSize,
 			},
-			systemPrompt: this.buildSystemPrompt(agent.primaryModelId),
+			systemPrompt: this.buildSystemPrompt(modelName),
 			previewUrl: await this.getBrowserPreviewURL(0).catch(() => undefined),
 		};
 
@@ -453,6 +454,7 @@ export class ThinkCodingBehavior
 
 			const compiled = pending.join('\n');
 			try {
+				await this.configureThinkAgent();
 				await this.runPrompt(compiled);
 			} catch (e) {
 				this.logger.error('Think prompt failed', e);

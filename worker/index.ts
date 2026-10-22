@@ -23,6 +23,8 @@ import {
 	verifyOwnerPreviewToken,
 } from './utils/ownerPreviewToken';
 import { routeManagedAppRequest } from './services/published-apps/controller';
+import { handleTeam } from './team';
+import type { TeamEnv } from './team/core';
 
 // Durable Object and Service exports
 export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
@@ -312,6 +314,11 @@ const worker = {
 			if (pathname === '/mcp') {
 				const app = createApp(env);
 				return app.fetch(request, env, ctx);
+			}
+
+			if (pathname.startsWith('/team')) {
+				const teamRes = await handleTeam(request, env as unknown as TeamEnv, ctx);
+				if (teamRes) return teamRes;
 			}
 			
 			// Serve static assets for all other non-API routes from the ASSETS binding.
