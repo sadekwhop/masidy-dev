@@ -20,6 +20,7 @@
 		"lint": "eslint .",
 		"preview": "npm run build && vite preview",
 		"deploy": "bun --env-file .prod.vars scripts/deploy.ts",
+		"routes:deploy": "bun run scripts/deploy-dynamic-routes.ts",
 		"cli": "tsx --tsconfig tsconfig.app.json cli/index.ts",
 		"tui": "tsx --tsconfig tsconfig.app.json cli/tui.tsx",
 		"cf-typegen": "wrangler types --include-runtime false",
