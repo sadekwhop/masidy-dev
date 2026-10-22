@@ -72,11 +72,6 @@ export function classifyIntent(lastUserMessage: string, taskHint?: string): Agen
 
 	const text = lastUserMessage.toLowerCase();
 
-	// Code signals
-	if (
-		/```|function |class |def |interface |impl |refactor|debug|fix.*(bug|error)|stack.?trace|typescript|javascript|python|sql|regex|component|hook|api.?route/.test(text)
-	) return 'code';
-
 	// Summary signals — long text or explicit summarize request
 	if (
 		/summari[sz]e|tl;?dr|key.?points|shorten|brief|overview/.test(text) ||
@@ -85,11 +80,17 @@ export function classifyIntent(lastUserMessage: string, taskHint?: string): Agen
 
 	// Reasoning/planning signals
 	if (
-		/prove|step.?by.?step|calculate|plan |strategy|why does|trade.?off|derive|compare|architect|design.?system|algorithm/.test(text)
+		/prove|step.?by.?step|calculate|why does|trade.?off|derive|algorithm/.test(text)
 	) return 'reasoning';
 
-	// Default
-	return 'chat';
+	// General chat signals (only pure greetings or non-coding chat)
+	if (
+		/^(hi|hello|hey|howdy|sup|greetings|who are you|what can you do|what are you)\b/i.test(text.trim()) &&
+		!/page|site|app|build|create|code|html|css|design/i.test(text)
+	) return 'chat';
+
+	// Everything else in the builder is code / web construction
+	return 'code';
 }
 
 /** Get the agent def for a given message, with optional explicit task hint. */

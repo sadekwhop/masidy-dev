@@ -66,8 +66,8 @@ const ROUTES_TO_DEPLOY: RouteConfig[] = [
     },
     fallback: {
       provider: 'workers-ai',
-      model: '@cf/moonshotai/kimi-k2.7-code',
-      timeout: 30000,
+      model: '@cf/zai-org/glm-4.7-flash',
+      timeout: 60000,
       retries: 1,
     },
   },
@@ -82,8 +82,8 @@ const ROUTES_TO_DEPLOY: RouteConfig[] = [
     },
     fallback: {
       provider: 'workers-ai',
-      model: '@cf/meta/llama-3.1-8b-instruct',
-      timeout: 20000,
+      model: '@cf/zai-org/glm-4.7-flash',
+      timeout: 60000,
       retries: 1,
     },
   },
@@ -130,8 +130,8 @@ const ROUTES_TO_DEPLOY: RouteConfig[] = [
     },
     fallback: {
       provider: 'workers-ai',
-      model: '@cf/meta/llama-3.1-8b-instruct',
-      timeout: 20000,
+      model: '@cf/zai-org/glm-4.7-flash',
+      timeout: 60000,
       retries: 1,
     },
   },
@@ -146,8 +146,8 @@ const ROUTES_TO_DEPLOY: RouteConfig[] = [
     },
     fallback: {
       provider: 'workers-ai',
-      model: '@cf/meta/llama-3.1-8b-instruct',
-      timeout: 20000,
+      model: '@cf/zai-org/glm-4.7-flash',
+      timeout: 60000,
       retries: 1,
     },
   },
