@@ -233,7 +233,13 @@ export class ThinkCodingBehavior
 
 		const agent = resolveAgent(typeof lastUserMsg === 'string' ? lastUserMsg : '');
 
-		const dynamicRouteName = this.env.CLOUDFLARE_AI_GATEWAY_ROUTE?.trim();
+		const rawRoute = this.env.CLOUDFLARE_AI_GATEWAY_ROUTE?.trim();
+		// If CLOUDFLARE_AI_GATEWAY_ROUTE was set to "yes", "true", or "1", treat it as a boolean flag
+		// and use the intelligent agent route (masidy-code, masidy-chat, etc.) instead of literal "yes".
+		const dynamicRouteName =
+			rawRoute && rawRoute !== 'yes' && rawRoute !== 'true' && rawRoute !== '1'
+				? rawRoute
+				: agent.routeName;
 		const modelName = agent.primaryModelId || THINK_MODEL_ID;
 
 		const config: ThinkAgentConfig = {

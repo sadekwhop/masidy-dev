@@ -135,6 +135,22 @@ const ROUTES_TO_DEPLOY: RouteConfig[] = [
       retries: 1,
     },
   },
+  {
+    name: 'yes',
+    description: 'Compatibility alias route for legacy CLOUDFLARE_AI_GATEWAY_ROUTE=yes configs',
+    primary: {
+      provider: 'workers-ai',
+      model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      timeout: 30000,
+      retries: 2,
+    },
+    fallback: {
+      provider: 'workers-ai',
+      model: '@cf/meta/llama-3.1-8b-instruct',
+      timeout: 20000,
+      retries: 1,
+    },
+  },
 ];
 
 function buildElements(route: RouteConfig) {
