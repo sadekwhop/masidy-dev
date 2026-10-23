@@ -49,6 +49,11 @@ vi.mock('../../../services/payments/PaymentVerificationService', () => ({
 	verifyUsdcPayment: (...args: unknown[]) => mockVerifyUsdcPayment(...args),
 }));
 
+type TestEnv = Parameters<typeof PaymentsController.getWallet>[1];
+type TestExecutionContext = Parameters<typeof PaymentsController.getWallet>[2];
+type Env = TestEnv;
+type ExecutionContext = TestExecutionContext;
+
 const testEnv = {
 	MASIDY_WALLET: '0x1234567890123456789012345678901234567890',
 	STRIPE_SECRET_KEY: 'sk_test_123',
@@ -151,7 +156,7 @@ describe('PaymentsController.createWalletNonce', () => {
 		);
 
 		expect(response.status).toBe(200);
-		const json = await response.json<{ success: boolean; data?: { nonce: string; expiresAt: string } }>();
+		const json = (await response.json()) as { success: boolean; data?: { nonce: string; expiresAt: string } };
 		expect(json.success).toBe(true);
 		expect(json.data?.nonce).toBe('test_nonce_123456');
 		expect(mockCreateWalletNonce).toHaveBeenCalledWith('user-1');
@@ -284,7 +289,7 @@ describe('PaymentsController.handleStripeWebhook', () => {
 		);
 
 		expect(response.status).toBe(200);
-		const json = await response.json<{ error?: string }>();
+		const json = (await response.json()) as { error?: string };
 		expect(json.error).toBe('missing user_id');
 		expect(mockAddStripeCredits).not.toHaveBeenCalled();
 	});
@@ -496,7 +501,7 @@ describe('PaymentsController.linkWallet', () => {
 		);
 
 		expect(response.status).toBe(200);
-		const json = await response.json<{ success: boolean; data?: { wallet: { address: string } } }>();
+		const json = (await response.json()) as { success: boolean; data?: { wallet: { address: string } } };
 		expect(json.success).toBe(true);
 		expect(json.data?.wallet.address).toBe(TEST_WALLET_ADDRESS.toLowerCase());
 		expect(mockConsumeWalletNonce).toHaveBeenCalledWith('user-1', nonce);
@@ -528,7 +533,7 @@ describe('PaymentsController.linkWallet', () => {
 		);
 
 		expect(response.status).toBe(400);
-		const json = await response.json<{ error: { message: string } }>();
+		const json = (await response.json()) as { error: { message: string } };
 		expect(json.error.message).toContain('Expected: "Masidy (masidy.dev): Link wallet');
 		expect(mockConsumeWalletNonce).not.toHaveBeenCalled();
 	});
@@ -555,7 +560,7 @@ describe('PaymentsController.linkWallet', () => {
 		);
 
 		expect(response.status).toBe(400);
-		const json = await response.json<{ error: { message: string } }>();
+		const json = (await response.json()) as { error: { message: string } };
 		expect(json.error.message).toContain('Invalid verification message format');
 		expect(mockConsumeWalletNonce).not.toHaveBeenCalled();
 		expect(mockLinkWallet).not.toHaveBeenCalled();
@@ -586,7 +591,7 @@ describe('PaymentsController.linkWallet', () => {
 		);
 
 		expect(response.status).toBe(400);
-		const json = await response.json<{ error: { message: string } }>();
+		const json = (await response.json()) as { error: { message: string } };
 		expect(json.error.message).toContain('Invalid or expired verification nonce');
 		expect(mockLinkWallet).not.toHaveBeenCalled();
 	});
@@ -614,7 +619,7 @@ describe('PaymentsController.linkWallet', () => {
 		);
 
 		expect(response.status).toBe(400);
-		const json = await response.json<{ error: { message: string } }>();
+		const json = (await response.json()) as { error: { message: string } };
 		expect(json.error.message).toContain('expired');
 		expect(mockConsumeWalletNonce).not.toHaveBeenCalled();
 		expect(mockLinkWallet).not.toHaveBeenCalled();
@@ -710,7 +715,7 @@ describe('PaymentsController.verifyPayment (Anti-Sniping Protection)', () => {
 		);
 
 		expect(response.status).toBe(403);
-		const json = await response.json<{ error: { message: string } }>();
+		const json = (await response.json()) as { error: { message: string } };
 		expect(json.error.message).toContain('please link this wallet');
 		expect(mockAddCredits).not.toHaveBeenCalled();
 	});
@@ -744,7 +749,7 @@ describe('PaymentsController.verifyPayment (Anti-Sniping Protection)', () => {
 		);
 
 		expect(response.status).toBe(200);
-		const json = await response.json<{ success: boolean; data?: { creditsAdded: number } }>();
+		const json = (await response.json()) as { success: boolean; data?: { creditsAdded: number } };
 		expect(json.success).toBe(true);
 		expect(json.data?.creditsAdded).toBe(50);
 		expect(mockAddCredits).toHaveBeenCalledWith('user-1', 50, '0xabc123');
@@ -820,7 +825,7 @@ describe('Zero-Waste Billing & Minimum Deposit Enforcement', () => {
 		);
 
 		expect(response.status).toBe(400);
-		const json = await response.json<{ success: boolean; error?: { message: string } }>();
+		const json = (await response.json()) as { success: boolean; error?: { message: string } };
 		expect(json.success).toBe(false);
 		expect(json.error?.message).toContain('Select a valid credit pack: $5, $10, $25, $50, $100');
 	});
@@ -847,7 +852,7 @@ describe('Zero-Waste Billing & Minimum Deposit Enforcement', () => {
 			);
 
 			expect(response.status).toBe(200);
-			const json = await response.json<{ success: boolean; data?: { url: string } }>();
+			const json = (await response.json()) as { success: boolean; data?: { url: string } };
 			expect(json.success).toBe(true);
 			expect(json.data?.url).toContain('cs_test_5dollar');
 		} finally {
@@ -880,7 +885,7 @@ describe('Zero-Waste Billing & Minimum Deposit Enforcement', () => {
 		);
 
 		expect(response.status).toBe(400);
-		const json = await response.json<{ success: boolean; error?: { message: string } }>();
+		const json = (await response.json()) as { success: boolean; error?: { message: string } };
 		expect(json.success).toBe(false);
 		expect(json.error?.message).toContain('Minimum deposit is $5.00 USDC');
 		expect(mockAddCredits).not.toHaveBeenCalled();

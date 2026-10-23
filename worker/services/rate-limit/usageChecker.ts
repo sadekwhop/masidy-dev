@@ -24,6 +24,9 @@ const CREDITS_CACHE_TTL_MINUTES = 5;
 export type LimitWindowKind = 'daily' | 'rolling';
 
 export interface UsageCheckResult extends CanProceedResult {
+	allowed: boolean;
+	reason?: string;
+	shouldUseByok: boolean;
 	withinLimits: boolean;
 	remaining: number;
 	limit: number;
