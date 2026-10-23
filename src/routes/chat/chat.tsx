@@ -1624,6 +1624,8 @@ function ChatSession() {
 							limitsData,
 							() => setBackendErrorDialog({ isOpen: false }),
 							navigate,
+							backendErrorDialog.errorMessage,
+							window.location.pathname,
 						);
 
 						return limitCheckResult.dialogComponent || null;

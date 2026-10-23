@@ -466,10 +466,12 @@ export class PaymentsController extends BaseController {
 		const url = new URL(request.url);
 		const origin = `${url.protocol}//${url.host}`;
 		const amountCents = amountUsd * 100;
+		const returnToParam = (bodyResult.data as unknown as { returnTo?: string }).returnTo;
+		const returnToQuery = returnToParam ? `&returnTo=${encodeURIComponent(returnToParam)}` : '';
 
 		const form = new URLSearchParams({
 			mode: 'payment',
-			success_url: `${origin}/settings#billing?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+			success_url: `${origin}/settings#billing?payment=success${returnToQuery}&session_id={CHECKOUT_SESSION_ID}`,
 			cancel_url: `${origin}/settings#billing?payment=cancelled`,
 			'line_items[0][quantity]': '1',
 			'line_items[0][price_data][currency]': 'usd',

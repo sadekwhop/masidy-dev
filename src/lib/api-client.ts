@@ -1479,10 +1479,20 @@ class ApiClient {
 	/**
 	 * Create a Stripe checkout session for purchasing credits via Card / Apple Pay.
 	 */
-	async createStripeCheckout(amountUsd: number): Promise<ApiResponse<StripeCheckoutData>> {
+	async createStripeCheckout(amountUsd: number, returnTo?: string): Promise<ApiResponse<StripeCheckoutData>> {
 		return this.request<StripeCheckoutData>('/api/payments/stripe/checkout', {
 			method: 'POST',
-			body: { amountUsd } as StripeCheckoutRequest,
+			body: { amountUsd, returnTo } as StripeCheckoutRequest & { returnTo?: string },
+		});
+	}
+
+	/**
+	 * Submit a message via the public contact form.
+	 */
+	async submitContactForm(data: { name: string; email: string; message: string; turnstileToken?: string }): Promise<ApiResponse<{ success: boolean; message: string }>> {
+		return this.request<{ success: boolean; message: string }>('/api/contact', {
+			method: 'POST',
+			body: data,
 		});
 	}
 }

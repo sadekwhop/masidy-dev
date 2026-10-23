@@ -22,7 +22,10 @@ function chargePerCall(): MiddlewareHandler<AppEnv> {
 	return async (c, next) => {
 		if (!c.env.MPP_SECRET_KEY || !c.env.MASIDY_WALLET) {
 			logger.error('MCP payment not configured: MPP_SECRET_KEY or MASIDY_WALLET missing');
-			return c.json({ error: 'MCP payment is not configured.' }, 503);
+			return c.json({
+				error: 'MCP payments are not configured on this instance. Visit https://masidy.dev/settings#billing to manage your account and credits.',
+				code: 'PAYMENT_UNCONFIGURED',
+			}, 503);
 		}
 
 		const mppx = Mppx.create({

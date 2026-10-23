@@ -212,3 +212,76 @@ export function PrivacyPage() {
 		</LegalPageLayout>
 	);
 }
+
+// NOTICE FOR OPERATOR: You must review these Terms, Privacy Policy, and Refund Policy
+// with a qualified legal professional to ensure full compliance with the consumer protection,
+// digital goods, and tax regulations of your jurisdiction.
+export function RefundPage() {
+	return (
+		<LegalPageLayout title="Masidy Refund Policy">
+			<p>
+				At Masidy, we operate a transparent, pay-as-you-go credit system. This policy
+				explains how purchases, credit deductions, and refunds work.
+			</p>
+			<section>
+				<h2>1. How Masidy credits work</h2>
+				<p>
+					Masidy uses prepaid credits for AI generation, full-stack builds, and hosting.
+					You purchase credit packs using standard payment cards (via Stripe) or
+					on-chain USDC cryptocurrency on Base mainnet. Credits do not expire while your
+					account remains active.
+				</p>
+				<p>
+					<strong>Zero-waste billing:</strong> Credits are only consumed for completed
+					generation phases and verified builds. If an AI build encounters a technical
+					failure, runtime crash, or is cancelled before producing output, no credits are deducted.
+				</p>
+			</section>
+			<section>
+				<h2>2. Refund eligibility for unused credits</h2>
+				<p>
+					You are eligible for a full refund of any <strong>unused</strong> credit balance
+					within <strong>14 days</strong> of the original purchase date.
+				</p>
+				<ul>
+					<li>
+						<strong>Card purchases (Stripe):</strong> Refunds will be issued back to the
+						original payment card used at checkout. Stripe processing typically takes 5–10 business days.
+					</li>
+					<li>
+						<strong>Crypto purchases (USDC on Base):</strong> Refunds for unused balances
+						can be sent to your linked Base wallet address. Due to blockchain finality, network
+						gas fees (~$0.01 on Base) are non-refundable.
+					</li>
+				</ul>
+			</section>
+			<section>
+				<h2>3. Non-refundable items</h2>
+				<p>
+					Credits that have already been consumed to execute completed AI model inference,
+					builds, and compute workloads are non-refundable once successfully delivered.
+				</p>
+			</section>
+			<section>
+				<h2>4. How to request a refund</h2>
+				<p>
+					To request a refund, email{' '}
+					<a className="underline" href="mailto:info@ragabsadek.me">
+						info@ragabsadek.me
+					</a>{' '}
+					with your Masidy account email and your Stripe receipt number or Base transaction hash.
+					We review and process refund requests within 2 business days.
+				</p>
+			</section>
+			<section>
+				<h2>5. Chargebacks and dispute policy</h2>
+				<p>
+					If you experience an issue with a purchase or generation, please contact us first
+					at <a className="underline" href="mailto:info@ragabsadek.me">info@ragabsadek.me</a>.
+					Filing an unnotified payment dispute automatically pauses account generation capabilities
+					while the dispute is investigated by the payment processor.
+				</p>
+			</section>
+		</LegalPageLayout>
+	);
+}

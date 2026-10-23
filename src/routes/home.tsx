@@ -25,7 +25,70 @@ import { useLimitsContext } from '@/contexts/limits-context';
 import { checkCanSendPrompt } from '@/utils/usage-limit-checker';
 import { MasidyLogo } from '@/components/masidy-logo';
 import { PromptBox } from '@/components/prompt-box';
-import { InfoIcon, PaperPlaneTiltIcon } from '@phosphor-icons/react';
+import { Link } from 'react-router';
+import {
+	InfoIcon,
+	PaperPlaneTiltIcon,
+	Sparkle,
+	Code,
+	Database,
+	Eye,
+	ChatCircleDots,
+	ArrowCounterClockwise,
+	Globe,
+	CreditCard,
+	Coins,
+	ShieldCheck,
+	CheckCircle,
+} from '@phosphor-icons/react';
+
+const EXAMPLE_PROMPTS = [
+	{
+		label: 'Local Business Landing',
+		prompt:
+			'Create a modern, high-converting landing page for an artisanal coffee roastery with menu showcase, opening hours, customer reviews, and reservation CTA',
+	},
+	{
+		label: 'Todo App with Database & Auth',
+		prompt:
+			'Build a full-stack todo task manager with user authentication, category tags, priority levels, due dates, and SQLite persistence',
+	},
+	{
+		label: 'Blog with Admin Editor',
+		prompt:
+			'Create a full-stack blog with an admin markdown editor, published article feed, tag filtering, and reader comment section backed by SQLite',
+	},
+	{
+		label: 'Store Page & Cart',
+		prompt:
+			'Build an online storefront featuring a product catalog with search, category filtering, a shopping cart drawer, and order summary',
+	},
+	{
+		label: 'Barber Booking Form',
+		prompt:
+			'Create a stylish barber shop booking app with service selection, staff stylist picker, date/time scheduling form, and confirmation summary',
+	},
+	{
+		label: 'Habit Tracker with Streaks',
+		prompt:
+			'Build a daily habit tracker app with completion checkboxes, weekly progress rings, streak counters, and motivational statistics',
+	},
+	{
+		label: 'Developer Portfolio',
+		prompt:
+			'Create a sleek developer portfolio showcasing featured projects with live demo links, technical skill badges, and a contact form',
+	},
+	{
+		label: 'Analytics Dashboard',
+		prompt:
+			'Build a responsive SaaS metrics dashboard with interactive revenue charts, key performance stat cards, and user activity logs',
+	},
+	{
+		label: 'Interactive Trivia Quiz',
+		prompt:
+			'Create a timed multi-category trivia quiz game with score tallying, instant answer explanations, and a global top-10 leaderboard',
+	},
+];
 
 export default function Home() {
 	const navigate = useNavigate();
@@ -246,6 +309,24 @@ export default function Home() {
 								) : undefined
 							}
 						/>
+
+						{/* Clickable example prompts */}
+						<div className="mt-3.5 flex flex-wrap items-center justify-center gap-1.5 px-1 sm:px-2">
+							<span className="text-[11px] font-medium text-kumo-subtle mr-1">
+								Try:
+							</span>
+							{EXAMPLE_PROMPTS.map((ex) => (
+								<button
+									key={ex.label}
+									type="button"
+									onClick={() => setQuery(ex.prompt)}
+									className="group inline-flex items-center gap-1 rounded-full border border-kumo-line bg-kumo-elevated/40 px-2.5 py-1 text-[11px] font-medium text-kumo-subtle transition-all hover:border-brand-primary/40 hover:bg-kumo-elevated hover:text-kumo-default active:scale-[0.98]"
+								>
+									<Sparkle className="size-3 text-brand-primary/70 group-hover:text-brand-primary" />
+									<span>{ex.label}</span>
+								</button>
+							))}
+						</div>
 					</motion.div>
 				</div>
 
@@ -342,6 +423,215 @@ export default function Home() {
 						</motion.section>
 					)}
 				</AnimatePresence>
+
+				{/* What you get section */}
+				<section className="w-full max-w-5xl mx-auto px-5 sm:px-6 mt-16 sm:mt-24 z-10">
+					<div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
+						<h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
+							What you get with Masidy
+						</h2>
+						<p className="mt-2 text-sm sm:text-base text-kumo-subtle">
+							Real full-stack web applications generated from natural language, running on your own isolated edge environment.
+						</p>
+					</div>
+
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+						<div className="p-5 rounded-2xl border border-kumo-line bg-kumo-elevated/40 hover:bg-kumo-elevated/60 transition-colors space-y-2.5">
+							<div className="size-9 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center">
+								<Code className="size-5" weight="duotone" />
+							</div>
+							<h3 className="text-base font-semibold text-text-primary">Full-Stack Application</h3>
+							<p className="text-xs sm:text-sm text-kumo-subtle leading-relaxed">
+								AI creates working frontend code and real server-side endpoints powered by Cloudflare Workers and Hono.
+							</p>
+						</div>
+
+						<div className="p-5 rounded-2xl border border-kumo-line bg-kumo-elevated/40 hover:bg-kumo-elevated/60 transition-colors space-y-2.5">
+							<div className="size-9 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center">
+								<Eye className="size-5" weight="duotone" />
+							</div>
+							<h3 className="text-base font-semibold text-text-primary">Live Interactive Preview</h3>
+							<p className="text-xs sm:text-sm text-kumo-subtle leading-relaxed">
+								Test your application instantly in a live, sandboxed browser iframe as the code is being written.
+							</p>
+						</div>
+
+						<div className="p-5 rounded-2xl border border-kumo-line bg-kumo-elevated/40 hover:bg-kumo-elevated/60 transition-colors space-y-2.5">
+							<div className="size-9 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center">
+								<Database className="size-5" weight="duotone" />
+							</div>
+							<h3 className="text-base font-semibold text-text-primary">Built-In Database & Viewer</h3>
+							<p className="text-xs sm:text-sm text-kumo-subtle leading-relaxed">
+								Persistent SQLite and D1 storage with an integrated visual table inspector right inside the chat workspace.
+							</p>
+						</div>
+
+						<div className="p-5 rounded-2xl border border-kumo-line bg-kumo-elevated/40 hover:bg-kumo-elevated/60 transition-colors space-y-2.5">
+							<div className="size-9 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center">
+								<ChatCircleDots className="size-5" weight="duotone" />
+							</div>
+							<h3 className="text-base font-semibold text-text-primary">Edit by Chatting</h3>
+							<p className="text-xs sm:text-sm text-kumo-subtle leading-relaxed">
+								Request design tweaks, add new tables, fix bugs, or expand features naturally by conversing with the agent.
+							</p>
+						</div>
+
+						<div className="p-5 rounded-2xl border border-kumo-line bg-kumo-elevated/40 hover:bg-kumo-elevated/60 transition-colors space-y-2.5">
+							<div className="size-9 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center">
+								<ArrowCounterClockwise className="size-5" weight="duotone" />
+							</div>
+							<h3 className="text-base font-semibold text-text-primary">One-Click Rollback</h3>
+							<p className="text-xs sm:text-sm text-kumo-subtle leading-relaxed">
+								Every build creates a durable git-backed checkpoint. Revert to any earlier working state with a single click.
+							</p>
+						</div>
+
+						<div className="p-5 rounded-2xl border border-kumo-line bg-kumo-elevated/40 hover:bg-kumo-elevated/60 transition-colors space-y-2.5">
+							<div className="size-9 rounded-xl bg-brand-primary/10 text-brand-primary flex items-center justify-center">
+								<Globe className="size-5" weight="duotone" />
+							</div>
+							<h3 className="text-base font-semibold text-text-primary">Publish, Share & GitHub Export</h3>
+							<p className="text-xs sm:text-sm text-kumo-subtle leading-relaxed">
+								Deploy to a public <code className="font-mono text-xs text-text-primary">*.masidy.dev</code> link, share with others, or sync code to GitHub.
+							</p>
+						</div>
+					</div>
+				</section>
+
+				{/* How Masidy works section */}
+				<section className="w-full max-w-5xl mx-auto px-5 sm:px-6 mt-20 sm:mt-28 z-10">
+					<div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
+						<h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
+							How Masidy works
+						</h2>
+						<p className="mt-2 text-sm sm:text-base text-kumo-subtle">
+							Five simple steps from an idea to a deployed, production-ready web application.
+						</p>
+					</div>
+
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+						<div className="p-4 rounded-xl border border-kumo-line bg-kumo-elevated/30 space-y-2">
+							<span className="inline-block text-xs font-mono font-bold text-brand-primary px-2 py-0.5 rounded bg-brand-primary/10">01</span>
+							<h3 className="text-sm font-semibold text-text-primary">Describe your app</h3>
+							<p className="text-xs text-kumo-subtle leading-relaxed">
+								Type your idea or pick a template prompt. Add optional screenshots or UI mockups to guide the layout.
+							</p>
+						</div>
+
+						<div className="p-4 rounded-xl border border-kumo-line bg-kumo-elevated/30 space-y-2">
+							<span className="inline-block text-xs font-mono font-bold text-brand-primary px-2 py-0.5 rounded bg-brand-primary/10">02</span>
+							<h3 className="text-sm font-semibold text-text-primary">Plans, writes & previews</h3>
+							<p className="text-xs text-kumo-subtle leading-relaxed">
+								Masidy drafts the file structure, writes the frontend and backend code, and mounts the live preview.
+							</p>
+						</div>
+
+						<div className="p-4 rounded-xl border border-kumo-line bg-kumo-elevated/30 space-y-2">
+							<span className="inline-block text-xs font-mono font-bold text-brand-primary px-2 py-0.5 rounded bg-brand-primary/10">03</span>
+							<h3 className="text-sm font-semibold text-text-primary">Console self-healing</h3>
+							<p className="text-xs text-kumo-subtle leading-relaxed">
+								The agent reads browser console logs in real-time and fixes any runtime errors before handing off.
+							</p>
+						</div>
+
+						<div className="p-4 rounded-xl border border-kumo-line bg-kumo-elevated/30 space-y-2">
+							<span className="inline-block text-xs font-mono font-bold text-brand-primary px-2 py-0.5 rounded bg-brand-primary/10">04</span>
+							<h3 className="text-sm font-semibold text-text-primary">Edit by chatting</h3>
+							<p className="text-xs text-kumo-subtle leading-relaxed">
+								Iterate conversationally. Make adjustments, add new features, or roll back to any earlier checkpoint.
+							</p>
+						</div>
+
+						<div className="p-4 rounded-xl border border-kumo-line bg-kumo-elevated/30 space-y-2">
+							<span className="inline-block text-xs font-mono font-bold text-brand-primary px-2 py-0.5 rounded bg-brand-primary/10">05</span>
+							<h3 className="text-sm font-semibold text-text-primary">Publish & export</h3>
+							<p className="text-xs text-kumo-subtle leading-relaxed">
+								Deploy to your custom <code className="font-mono text-[11px] text-text-primary">*.masidy.dev</code> subdomain, share with users, or export to GitHub.
+							</p>
+						</div>
+					</div>
+				</section>
+
+				{/* How credits work section */}
+				<section className="w-full max-w-5xl mx-auto px-5 sm:px-6 mt-20 sm:mt-28 z-10">
+					<div className="text-center max-w-2xl mx-auto mb-10 sm:mb-14">
+						<h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
+							How credits work
+						</h2>
+						<p className="mt-2 text-sm sm:text-base text-kumo-subtle">
+							Prepaid credits with total cost transparency. No hidden fees or recurring subscriptions.
+						</p>
+					</div>
+
+					<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+						<div className="p-5 rounded-2xl border border-kumo-line bg-kumo-elevated/40 space-y-2">
+							<div className="flex items-center gap-2.5">
+								<CreditCard className="size-5 text-brand-primary" />
+								<h3 className="text-base font-semibold text-text-primary">Prepaid & Upfront Pricing</h3>
+							</div>
+							<p className="text-xs sm:text-sm text-kumo-subtle leading-relaxed">
+								You only pay for what you actually use. The estimated cost is displayed before each build or iteration starts. Deposit credits in increments starting at $5.
+							</p>
+						</div>
+
+						<div className="p-5 rounded-2xl border border-kumo-line bg-kumo-elevated/40 space-y-2">
+							<div className="flex items-center gap-2.5">
+								<Coins className="size-5 text-brand-primary" />
+								<h3 className="text-base font-semibold text-text-primary">Card & USDC on Base</h3>
+							</div>
+							<p className="text-xs sm:text-sm text-kumo-subtle leading-relaxed">
+								Buy credits using debit/credit cards via Stripe or on-chain USDC on Base mainnet. Perfect for international builders who lack an international credit card.
+							</p>
+						</div>
+
+						<div className="p-5 rounded-2xl border border-kumo-line bg-kumo-elevated/40 space-y-2">
+							<div className="flex items-center gap-2.5">
+								<ShieldCheck className="size-5 text-emerald-500" />
+								<h3 className="text-base font-semibold text-text-primary">Zero-Waste Guarantee</h3>
+							</div>
+							<p className="text-xs sm:text-sm text-kumo-subtle leading-relaxed">
+								If an AI build fails, encounters a server error, or is stopped early, no credits are deducted. You are only charged when working code is delivered.
+							</p>
+						</div>
+
+						<div className="p-5 rounded-2xl border border-kumo-line bg-kumo-elevated/40 space-y-2">
+							<div className="flex items-center gap-2.5">
+								<CheckCircle className="size-5 text-brand-primary" />
+								<h3 className="text-base font-semibold text-text-primary">When Credits Run Out & Refunds</h3>
+							</div>
+							<p className="text-xs sm:text-sm text-kumo-subtle leading-relaxed">
+								When credits reach zero, builds pause cleanly with a top-up dialog. Your existing apps, databases, and previews stay live. We offer a full 14-day refund on unused credit balances.
+							</p>
+						</div>
+					</div>
+				</section>
+
+				{/* Footer */}
+				<footer className="w-full max-w-5xl mx-auto px-5 sm:px-6 mt-24 sm:mt-32 pb-12 z-10 border-t border-kumo-line pt-8">
+					<div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-kumo-subtle">
+						<div className="flex items-center gap-2">
+							<MasidyLogo markClassName="size-5" className="text-xs" />
+							<span>© 2026 Masidy. All rights reserved.</span>
+						</div>
+						<div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+							<Link to="/about" className="hover:text-text-primary transition-colors">
+								About
+							</Link>
+							<Link to="/contact" className="hover:text-text-primary transition-colors">
+								Contact
+							</Link>
+							<Link to="/terms" className="hover:text-text-primary transition-colors">
+								Terms of Service
+							</Link>
+							<Link to="/privacy" className="hover:text-text-primary transition-colors">
+								Privacy Policy
+							</Link>
+							<Link to="/refund" className="hover:text-text-primary transition-colors">
+								Refund Policy
+							</Link>
+						</div>
+					</div>
+				</footer>
 			</LayoutGroup>
 
 			{/* Usage limit dialogs */}

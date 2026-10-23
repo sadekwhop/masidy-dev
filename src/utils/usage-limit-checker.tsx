@@ -23,29 +23,67 @@ export interface LimitCheckDialogResult {
 }
 
 
-function createUsageLimitDialog(onClose: () => void, navigate: (path: string) => void): React.ReactElement {
+export interface UsageLimitDialogOptions {
+	onClose: () => void;
+	navigate: (path: string) => void;
+	currentBalance?: number;
+	costEstimate?: number;
+	customMessage?: string;
+	returnUrl?: string;
+}
+
+export function createUsageLimitDialog(options: UsageLimitDialogOptions): React.ReactElement {
+	const { onClose, navigate, currentBalance, costEstimate = 0.15, customMessage, returnUrl } = options;
+	const billingUrl = returnUrl
+		? `/settings#billing?returnTo=${encodeURIComponent(returnUrl)}`
+		: '/settings#billing';
+
 	return (
 		<Dialog open={true} onOpenChange={onClose}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
 					<div className="mb-2">
-						<AlertCircle className="h-10 w-10 text-text-tertiary" />
+						<AlertCircle className="h-10 w-10 text-amber-500" />
 					</div>
 					<DialogTitle className="text-xl">
-						Daily limit reached
+						{customMessage?.includes('already in progress')
+							? 'Build already in progress'
+							: 'Credits needed to continue'}
 					</DialogTitle>
-					<DialogDescription className="pt-2 text-sm">
-						You've used your 100 free daily credits. Add USDC credits
-						to keep building — your usage resets every day at midnight UTC.
+					<DialogDescription className="pt-2 text-sm text-text-secondary leading-relaxed">
+						{customMessage ||
+							"You don't have enough credits to start or continue this action. Top up with credit card (Stripe) or USDC on Base to keep building."}
 					</DialogDescription>
 				</DialogHeader>
+
+				<div className="my-3 p-3 rounded-lg bg-kumo-elevated/50 border border-kumo-line text-xs space-y-1.5">
+					<div className="flex justify-between items-center text-text-secondary">
+						<span>Current balance:</span>
+						<span className="font-semibold text-text-primary">
+							${(currentBalance ?? 0).toFixed(2)}
+						</span>
+					</div>
+					<div className="flex justify-between items-center text-text-secondary">
+						<span>Estimated action cost:</span>
+						<span className="font-semibold text-text-primary">
+							~${costEstimate.toFixed(2)}
+						</span>
+					</div>
+					<div className="pt-1 border-t border-kumo-line/50 text-[11px] text-text-tertiary">
+						Policy: You only pay for completed builds. Failed or cancelled generations never deduct credits.
+					</div>
+				</div>
+
 				<DialogFooter className="sm:justify-start gap-2">
 					<Button
 						type="button"
-						onClick={() => { onClose(); navigate('/settings#billing'); }}
-						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white"
+						onClick={() => {
+							onClose();
+							navigate(billingUrl);
+						}}
+						className="w-full sm:w-auto bg-brand-primary hover:bg-brand-primary/90 text-white font-medium"
 					>
-						Add credits
+						Buy credits
 					</Button>
 					<Button
 						type="button"
@@ -53,7 +91,7 @@ function createUsageLimitDialog(onClose: () => void, navigate: (path: string) =>
 						onClick={onClose}
 						className="w-full sm:w-auto"
 					>
-						Later
+						Close
 					</Button>
 				</DialogFooter>
 			</DialogContent>
@@ -117,6 +155,7 @@ export function checkCanSendPrompt(
 	loading: boolean,
 	onClose: () => void,
 	navigate: ReturnType<typeof useNavigate>,
+	returnUrl?: string,
 ): LimitCheckDialogResult {
 	if (loading || !limitsData) {
 		return { canProceed: true };
@@ -128,9 +167,18 @@ export function checkCanSendPrompt(
 		return { canProceed: true };
 	}
 
+	const balance = limitsData.cloudflareCredits?.credits ?? 0;
+
 	return {
 		canProceed: false,
-		dialogComponent: createUsageLimitDialog(onClose, navigate),
+		dialogComponent: createUsageLimitDialog({
+			onClose,
+			navigate,
+			currentBalance: balance,
+			costEstimate: 0.15,
+			customMessage: limitCheck.message,
+			returnUrl,
+		}),
 	};
 }
 
@@ -141,18 +189,20 @@ export function getBackendLimitDialog(
 	limitsData: UsageSummary | null,
 	onClose: () => void,
 	navigate: ReturnType<typeof useNavigate>,
+	customMessage?: string,
+	returnUrl?: string,
 ): LimitCheckDialogResult {
-	if (!limitsData) {
-		return { canProceed: true };
-	}
-
-	const { limitCheck } = limitsData;
-	if (limitCheck.withinLimits) {
-		return { canProceed: true };
-	}
+	const balance = limitsData?.cloudflareCredits?.credits ?? 0;
 
 	return {
 		canProceed: false,
-		dialogComponent: createUsageLimitDialog(onClose, navigate),
+		dialogComponent: createUsageLimitDialog({
+			onClose,
+			navigate,
+			currentBalance: balance,
+			costEstimate: 0.15,
+			customMessage,
+			returnUrl,
+		}),
 	};
 }

@@ -20,12 +20,16 @@ import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
 import { setupMcpRoutes } from './mcpRoutes';
 import { setupPaymentRoutes } from './paymentRoutes';
+import { setupContactRoutes } from './contactRoutes';
 
 export function setupRoutes(app: Hono<AppEnv>): void {
     // Health check route
     app.get('/api/health', (c) => {
         return c.json({ status: 'ok' });
     }); 
+    
+    // Contact form route (public)
+    setupContactRoutes(app);
     
     // Sentry tunnel routes (public - no auth required)
     setupSentryRoutes(app);

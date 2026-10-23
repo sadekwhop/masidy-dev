@@ -62,15 +62,39 @@ export function BillingSection() {
 	useEffect(() => {
 		const searchParams = new URLSearchParams(window.location.search);
 		const hash = window.location.hash;
-		const hasPaymentSuccess = searchParams.get('payment') === 'success' || hash.includes('payment=success');
-		const hasPaymentCancel = searchParams.get('payment') === 'cancelled' || hash.includes('payment=cancelled');
+		const hasPaymentSuccess =
+			searchParams.get('payment') === 'success' ||
+			hash.includes('payment=success');
+		const hasPaymentCancel =
+			searchParams.get('payment') === 'cancelled' ||
+			hash.includes('payment=cancelled');
+		const returnTo =
+			searchParams.get('returnTo') ||
+			new URLSearchParams(hash.split('?')[1] || '').get('returnTo');
 
 		if (hasPaymentSuccess) {
-			toast.success('Payment successful! Your credits have been updated.');
+			toast.success('Payment successful! Your credits have been updated.', {
+				duration: 8000,
+				action: returnTo
+					? {
+							label: 'Return to build',
+							onClick: () => {
+								window.location.href = returnTo;
+							},
+						}
+					: undefined,
+			});
 			void queryClient.invalidateQueries({ queryKey: queryKeys.account.payments.all() });
+			void queryClient.invalidateQueries({ queryKey: queryKeys.account.limits.all() });
 			// Clean URL without reloading
 			const cleanUrl = window.location.pathname + window.location.hash.split('?')[0];
 			window.history.replaceState({}, document.title, cleanUrl);
+
+			if (returnTo) {
+				setTimeout(() => {
+					window.location.href = returnTo;
+				}, 2200);
+			}
 		} else if (hasPaymentCancel) {
 			toast.info('Checkout cancelled. No charges were made.');
 			const cleanUrl = window.location.pathname + window.location.hash.split('?')[0];
@@ -157,7 +181,10 @@ export function BillingSection() {
 	const handleStripeCheckout = async (amountUsd: number) => {
 		try {
 			setStripeLoading(amountUsd);
-			const res = await apiClient.createStripeCheckout(amountUsd);
+			const searchParams = new URLSearchParams(window.location.search);
+			const hash = window.location.hash;
+			const returnTo = searchParams.get('returnTo') || new URLSearchParams(hash.split('?')[1] || '').get('returnTo') || undefined;
+			const res = await apiClient.createStripeCheckout(amountUsd, returnTo);
 			if (!res.success || !res.data?.url) {
 				throw new Error(res.error?.message || 'Could not initialize checkout');
 			}

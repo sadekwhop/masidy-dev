@@ -569,3 +569,95 @@ document.getElementById("root").textContent += `  ·  visits: ${v.count}`;
 Note `./api/time` (relative) in JS, `/style.css` (root-relative) in HTML. The HTML href is rewritten by the preview; the JS fetch resolves against the document's base URL.
 
 Commit this, call `deploy_space("main")`, and the preview at `/space/<name>/preview/main/` will render the timestamp and an incrementing visit counter persisted in the App DO's SQLite.
+
+## Curated Starter Templates
+When scaffolding a new application, identify which pattern fits the user request and start from its proven structure:
+
+### 1. Modern Business Landing Page
+- **Schema & Backend (`src/index.ts`)**:
+  ```ts
+  this.ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS leads (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT, message TEXT, created_at INTEGER)`);
+  ```
+- **Frontend (`public/index.html` + `public/app.js`)**:
+  - Hero with punchy headline, value proposition, and primary action button.
+  - Interactive product/menu grid with high-resolution imagery and badge filters.
+  - Testimonial slider / customer reviews with star ratings.
+  - Contact or reservation form submitting to `./api/leads`.
+
+### 2. Todo & Task Manager with Database and Auth
+- **Schema & Backend (`src/index.ts`)**:
+  ```ts
+  this.ctx.storage.sql.exec(`
+    CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT, name TEXT);
+    CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, user_id TEXT, title TEXT, status TEXT, priority TEXT, due_date TEXT, created_at INTEGER);
+  `);
+  ```
+- **Endpoints**: `POST /api/auth/demo-login`, `GET /api/tasks`, `POST /api/tasks`, `PATCH /api/tasks/:id`, `DELETE /api/tasks/:id`.
+- **Frontend**: Filter tabs (All, Active, Completed), priority badges (Low, Medium, High), inline checkbox toggles, instant demo login.
+
+### 3. Full-Stack Blog with Admin Editor
+- **Schema & Backend (`src/index.ts`)**:
+  ```ts
+  this.ctx.storage.sql.exec(`
+    CREATE TABLE IF NOT EXISTS articles (id TEXT PRIMARY KEY, title TEXT, slug TEXT UNIQUE, summary TEXT, content TEXT, author TEXT, published_at INTEGER);
+    CREATE TABLE IF NOT EXISTS comments (id TEXT PRIMARY KEY, article_id TEXT, author TEXT, body TEXT, created_at INTEGER);
+  `);
+  ```
+- **Endpoints**: `GET /api/articles`, `GET /api/articles/:slug`, `POST /api/articles`, `POST /api/articles/:id/comments`.
+- **Frontend**: Reader article list with search, clean typography reading view, comment submission form, and "Admin Mode" modal with markdown editor.
+
+### 4. SaaS Analytics Dashboard
+- **Schema & Backend (`src/index.ts`)**:
+  ```ts
+  this.ctx.storage.sql.exec(`
+    CREATE TABLE IF NOT EXISTS metrics (date TEXT PRIMARY KEY, revenue REAL, active_users INTEGER, signups INTEGER);
+    CREATE TABLE IF NOT EXISTS activity_log (id TEXT PRIMARY KEY, event TEXT, user TEXT, created_at INTEGER);
+  `);
+  ```
+- **Endpoints**: `GET /api/metrics`, `GET /api/activity`.
+- **Frontend**: Key metric stat cards with trend percentages (+12% vs last week), interactive SVG bar/line charts, and recent activity log table.
+
+### 5. E-Commerce Storefront with Cart Drawer
+- **Schema & Backend (`src/index.ts`)**:
+  ```ts
+  this.ctx.storage.sql.exec(`
+    CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT, description TEXT, price REAL, category TEXT, image_url TEXT, in_stock INTEGER);
+    CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, customer_email TEXT, items_json TEXT, total REAL, created_at INTEGER);
+  `);
+  ```
+- **Endpoints**: `GET /api/products`, `POST /api/checkout`.
+- **Frontend**: Search & category pills, product cards with "Add to Cart", animated slide-over cart drawer with quantity increments and order total.
+
+### 6. Appointment & Service Booking App
+- **Schema & Backend (`src/index.ts`)**:
+  ```ts
+  this.ctx.storage.sql.exec(`
+    CREATE TABLE IF NOT EXISTS services (id TEXT PRIMARY KEY, name TEXT, duration_mins INTEGER, price REAL);
+    CREATE TABLE IF NOT EXISTS appointments (id TEXT PRIMARY KEY, client_name TEXT, client_email TEXT, service_id TEXT, scheduled_time TEXT, created_at INTEGER);
+  `);
+  ```
+- **Endpoints**: `GET /api/services`, `GET /api/booked-slots`, `POST /api/appointments`.
+- **Frontend**: Multi-step booking wizard: 1) Select Service, 2) Select Date & Time Slot, 3) Enter Client Details, 4) Confirmation Ticket.
+
+### 7. Developer Portfolio & Showcase
+- **Schema & Backend (`src/index.ts`)**:
+  ```ts
+  this.ctx.storage.sql.exec(`
+    CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, title TEXT, desc TEXT, tags TEXT, github_url TEXT, demo_url TEXT);
+    CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, name TEXT, email TEXT, message TEXT, created_at INTEGER);
+  `);
+  ```
+- **Endpoints**: `GET /api/projects`, `POST /api/messages`.
+- **Frontend**: Dark mode hero banner, tech stack pill tags, project showcase cards with external link buttons, and working contact form.
+
+### 8. Timed Trivia Quiz with Leaderboard
+- **Schema & Backend (`src/index.ts`)**:
+  ```ts
+  this.ctx.storage.sql.exec(`
+    CREATE TABLE IF NOT EXISTS questions (id INTEGER PRIMARY KEY, question TEXT, option_a TEXT, option_b TEXT, option_c TEXT, option_d TEXT, correct_opt TEXT, explanation TEXT);
+    CREATE TABLE IF NOT EXISTS leaderboard (id TEXT PRIMARY KEY, player_name TEXT, score INTEGER, total INTEGER, time_seconds INTEGER, created_at INTEGER);
+  `);
+  ```
+- **Endpoints**: `GET /api/questions`, `POST /api/leaderboard`, `GET /api/leaderboard`.
+- **Frontend**: 15-second countdown timer per question, instant color-coded feedback (green/red) with explanations, final score card, and top-10 leaderboard.
+
