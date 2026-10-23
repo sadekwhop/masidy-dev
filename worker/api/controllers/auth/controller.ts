@@ -36,7 +36,7 @@ import { encryptTokens, type EncryptedTokenData } from '../../../utils/tokenEncr
 import { CloudflareConnectOAuthProvider } from '../../../services/oauth/cloudflare-connect';
 import { CloudflareProvisioningService } from '../../../services/cloudflare/CloudflareProvisioningService';
 import { isCloudflareGatewayLimitsEnabled } from '../../../services/rate-limit';
-import { isEmailAuthEnabled } from '../../../utils/envs';
+import { isEmailAuthEnabled, isProd } from '../../../utils/envs';
 /**
  * Authentication Controller
  */
@@ -62,6 +62,11 @@ export class AuthController extends BaseController {
             }
 
             const validatedData = registerSchema.parse(bodyResult.data);
+
+            if (isProd(env) && !env.TURNSTILE_SECRET_KEY) {
+                AuthController.logger.error('CRITICAL: TURNSTILE_SECRET_KEY is not configured in production');
+                return AuthController.createErrorResponse('Security verification service is not configured', 503);
+            }
 
             if (env.TURNSTILE_SECRET_KEY) {
                 if (!validatedData.turnstileToken) {
