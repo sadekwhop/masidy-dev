@@ -70,7 +70,7 @@ const DEFAULT_SYSTEM_PROMPT =
  */
 export class ThinkAgent extends Think<Env> {
 	/** Step budget per turn (Think's default is 10). */
-	override maxSteps = 25;
+	override maxSteps = 30;
 	/** SpaceDO has no shell; expose only the explicit file tools. */
 	override workspaceBash = false;
 

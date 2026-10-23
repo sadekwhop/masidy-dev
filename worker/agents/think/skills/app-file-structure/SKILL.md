@@ -274,73 +274,115 @@ only that room's sockets.
 - **`d1_databases`, `r2_buckets`, `kv_namespaces`.** Not available.
   Everything goes in `this.ctx.storage`.
 
-## Static asset rules (read this twice)
+## Static asset rules (CRITICAL - READ FIRST)
 
-This is where most preview failures happen. The browser eventually runs your assets — the bundler does **not** transform them. So:
+**THERE IS NO BUILD STEP IN THIS PLATFORM.**
+The deployment pipeline (`deploy_space`) does **NOT** run `npm install`, `npm run build`, `vite build`, `esbuild`, or any shell commands. Files in `public/` (or `[assets].directory`) are served **DIRECTLY** to the browser as static assets.
 
-### **NEVER ship JSX in a `<script type="module">` (or any other script tag).** Browsers cannot parse JSX.
+### Forbidden Frontend Patterns:
+1. **NEVER ship raw JSX inside `.js` files.** Browsers cannot parse JSX and will crash with `SyntaxError: Unexpected token '<'`.
+2. **NEVER use TypeScript (`.ts`, `.tsx`) in `public/`.** Browsers only execute standard JavaScript.
+3. **NEVER add `vite`, `esbuild`, `tsup`, `webpack`, or build scripts to `package.json` for frontend code.** They will NOT be executed during deployment.
+4. **NEVER create `vite.config.ts`, `webpack.config.js`, or similar frontend bundler configs.**
 
-This page **will be blank** with a `SyntaxError: Unexpected token '<'`:
+### Allowed Frontend Patterns:
+
+#### Pattern 1: `htm` with Preact or React (HIGHLY RECOMMENDED)
+Gives you standard JSX-like syntax using native JavaScript tagged template literals. Zero build step, runs natively in all modern browsers!
 
 ```html
-<script type="module">
-  import React from "https://esm.sh/react@18";
-  const App = () => <div>hi</div>;   // ← browser dies here
-</script>
+<!-- public/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>App</title>
+  <link rel="stylesheet" href="./style.css" />
+  <script type="importmap">
+  {
+    "imports": {
+      "preact": "https://esm.sh/preact@10.25.4",
+      "preact/hooks": "https://esm.sh/preact@10.25.4/hooks",
+      "htm/preact": "https://esm.sh/htm@3.1.1/preact"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
 ```
 
-Fix one of these three ways:
+```javascript
+// public/app.js
+import { render } from "preact";
+import { useState, useEffect } from "preact/hooks";
+import { html } from "htm/preact";
 
-1. **Pre-compile** — write JSX in a build step (Vite/esbuild/tsup) and emit plain JS into `public/`. Best for production.
-2. **`React.createElement` by hand** — works without a build step but is verbose.
-3. **`@babel/standalone`** — only for prototypes. Load Babel **before** the script and use `type="text/babel"`. The modern `@babel/preset-react` defaults to the **automatic JSX runtime**, which emits `import { jsx } from "react/jsx-runtime"`. Browsers will reject that bare specifier unless your importmap maps it. **Always ship a complete importmap alongside the Babel script:**
+function App() {
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-   ```html
-   <script type="importmap">
-   {
-     "imports": {
-       "react": "https://esm.sh/react@18.3.1",
-       "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
-       "react-dom": "https://esm.sh/react-dom@18.3.1",
-       "react-dom/client": "https://esm.sh/react-dom@18.3.1/client"
-     }
-   }
-   </script>
-   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-   <script type="text/babel" data-type="module" data-presets="react">
-     import React from "react";
-     import { createRoot } from "react-dom/client";
-     const App = () => <div>hi</div>;
-     createRoot(document.getElementById("root")).render(<App />);
-   </script>
-   ```
+  useEffect(() => {
+    fetch("./api/items")
+      .then((res) => res.json())
+      .then((items) => {
+        setData(items);
+        setLoading(false);
+      });
+  }, []);
 
-   `data-type="module"` is required for `import` to work inside the Babel script. Import React from the importmap key (`"react"`) — not from a hard-coded `esm.sh` URL — so your code and Babel's emitted `react/jsx-runtime` import resolve to the **same** React instance.
+  return html`
+    <div class="container">
+      <header class="header">
+        <h1>Dashboard</h1>
+      </header>
+      <main>
+        ${loading ? html`<p>Loading...</p>` : html`
+          <ul>
+            ${data.map((item) => html`<li key=${item.id}>${item.name}</li>`)}
+          </ul>
+        `}
+      </main>
+    </div>
+  `;
+}
 
-   If you really cannot ship `react/jsx-runtime` in the importmap, force Babel to the legacy classic runtime instead so it emits `React.createElement` calls and never touches `react/jsx-runtime`:
+render(html`<${App} />`, document.getElementById("root"));
+```
 
-   ```html
-   <script
-     type="text/babel"
-     data-type="module"
-     data-presets="react"
-     data-plugins='[["transform-react-jsx", { "runtime": "classic" }]]'
-   >
-     import React from "https://esm.sh/react@18.3.1";  /* must be in scope */
-     const App = () => <div>hi</div>;
-   </script>
-   ```
+#### Pattern 2: Modern Vanilla JavaScript & Web Components
+Standard ES modules with template literals, reactive event listeners, and direct DOM manipulation. Clean, fast, and completely immune to bundler/JSX issues.
 
-   The classic runtime requires `React` to be in lexical scope (because `<div>` becomes `React.createElement("div")`). The automatic runtime (default) does not, but needs `react/jsx-runtime` resolvable.
+#### Pattern 3: `React.createElement` (Plain JavaScript)
+If using React without `htm`, write pure `React.createElement`:
+```javascript
+import React from "https://esm.sh/react@18.3.1";
+import { createRoot } from "https://esm.sh/react-dom@18.3.1/client";
+
+function App() {
+  return React.createElement("div", { className: "landing" },
+    React.createElement("h1", null, "Hello World")
+  );
+}
+createRoot(document.getElementById("root")).render(React.createElement(App));
+```
+
+### Agent Invariants & Problem Solving Rules:
+1. **Rule 1: Stop Thrashing**: If `get_browser_console_logs` shows `Unexpected token '<'` or any error twice, **STOP**. Do NOT attempt to configure build tools (Vite/esbuild). Switch immediately to Pattern 1 (`htm/preact`) or Pattern 2 (Vanilla JS).
+2. **Rule 2: Cleanup Dead Artifacts**: If you attempted a configuration that failed (e.g. created `vite.config.ts` or added unused dependencies in `package.json`), **DELETE** them before reporting completion.
+3. **Rule 3: Real Verification Only**: Never end a turn with "Next steps: verify it works". You must call `deploy_space`, run `get_browser_console_logs`, confirm 0 console errors, and report the actual outcome.
 
 ### Symptom-to-fix index
 
 | Console error | Cause | Fix |
 | --- | --- | --- |
-| `Uncaught SyntaxError: Unexpected token '<'` (inside `<script type="module">`) | JSX shipped raw to the browser | Pre-compile, or use `@babel/standalone` with `type="text/babel"` |
-| `Uncaught TypeError: Failed to resolve module specifier "react/jsx-runtime". Relative references must start with either "/", "./", or "../".` | Automatic JSX runtime emits `import "react/jsx-runtime"` but importmap doesn't map it | Add `"react/jsx-runtime": "https://esm.sh/react@<same-version>/jsx-runtime"` to the importmap **before** the Babel/script tag — or force the classic runtime (see above) |
-| `Uncaught TypeError: Failed to resolve module specifier "react"` (or any bare name) | No importmap entry for that package | Add it to the importmap; importmap script tag must appear **before** any module script that uses the specifier |
-| `TypeError: Cannot read properties of null (reading 'useContext')` | Dual-React (two copies loaded) | Append `?external=react,react-dom` to every esm.sh URL with React as a peer dep — see the dual-React trap below |
+| `Uncaught SyntaxError: Unexpected token '<'` (inside `<script type="module">`) | JSX shipped raw to the browser without a build step | Switch to `htm/preact` (tagged template literals) or vanilla JS immediately. Never try to add Vite or esbuild! |
+| `Uncaught TypeError: Failed to resolve module specifier "..."` | Missing importmap entry | Add the CDN URL (e.g. `https://esm.sh/...`) to `<script type="importmap">` in `index.html` before the module script |
+| `TypeError: Cannot read properties of null (reading 'useContext')` | Dual-React (two copies loaded) | Append `?external=react,react-dom` to every esm.sh URL with React as a peer dep |
 
 ### Other asset gotchas
 
