@@ -137,6 +137,19 @@ export class PaymentsController extends BaseController {
 			);
 		}
 
+		// Beta rule: check per-user maximum deposit cap if configured via env
+		const rawMaxCap = env.MAX_USER_DEPOSIT_USD;
+		const maxDepositCap = rawMaxCap ? Number(rawMaxCap) : undefined;
+		if (maxDepositCap !== undefined && Number.isFinite(maxDepositCap) && maxDepositCap > 0) {
+			const summary = await paymentService.getCreditSummary(context.user.id);
+			if (summary.totalDeposited + verified.amountUsdc > maxDepositCap) {
+				return PaymentsController.createErrorResponse(
+					`Beta limit: Maximum deposit cap of $${maxDepositCap} reached for this account. Current total deposits: $${summary.totalDeposited.toFixed(2)}.`,
+					400,
+				);
+			}
+		}
+
 		// Credit the user
 		const newBalance = await paymentService.addCredits(
 			context.user.id,
@@ -434,6 +447,20 @@ export class PaymentsController extends BaseController {
 				`Select a valid credit pack: $${allowedAmounts.join(', $')}`,
 				400,
 			);
+		}
+
+		// Beta rule: check per-user maximum deposit cap if configured via env
+		const rawMaxCap = env.MAX_USER_DEPOSIT_USD;
+		const maxDepositCap = rawMaxCap ? Number(rawMaxCap) : undefined;
+		if (maxDepositCap !== undefined && Number.isFinite(maxDepositCap) && maxDepositCap > 0) {
+			const paymentService = new PaymentService(env);
+			const summary = await paymentService.getCreditSummary(context.user.id);
+			if (summary.totalDeposited + amountUsd > maxDepositCap) {
+				return PaymentsController.createErrorResponse(
+					`Beta limit: Maximum deposit cap of $${maxDepositCap} reached for this account. Current total deposits: $${summary.totalDeposited.toFixed(2)}.`,
+					400,
+				);
+			}
 		}
 
 		const url = new URL(request.url);

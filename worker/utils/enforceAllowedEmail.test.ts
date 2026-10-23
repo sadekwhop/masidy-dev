@@ -45,4 +45,12 @@ describe('enforceAllowedEmail', () => {
 			expect((error as SecurityErrorLike).message).toContain('to register');
 		}
 	});
+
+	it('supports comma-separated list of allowed emails', () => {
+		const env = envWith('alice@example.com, bob@example.com, CHARLIE@example.com');
+		expect(() => enforceAllowedEmail(env, 'alice@example.com', 'login')).not.toThrow();
+		expect(() => enforceAllowedEmail(env, 'BOB@example.com', 'register')).not.toThrow();
+		expect(() => enforceAllowedEmail(env, 'charlie@example.com', 'oauth')).not.toThrow();
+		expect(() => enforceAllowedEmail(env, 'eve@example.com', 'login')).toThrow();
+	});
 });

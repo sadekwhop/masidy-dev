@@ -559,6 +559,7 @@ function ChatSession() {
 		isDeploying,
 		files,
 		handleDeployToCloudflare,
+		handleOpenLiveView,
 	]);
 
 	usePageHeader(headerContent);
@@ -1067,6 +1068,7 @@ function ChatSession() {
 			clearImages,
 			limitsData,
 			limitsLoading,
+			navigate,
 		],
 	);
 

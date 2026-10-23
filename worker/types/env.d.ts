@@ -48,5 +48,8 @@ declare namespace Cloudflare {
 		STRIPE_SECRET_KEY?: string;
 		STRIPE_WEBHOOK_SECRET?: string;
 		BASE_RPC_URL?: string;
+		MAX_USER_DEPOSIT_USD?: string;
+		ALLOWED_EMAIL?: string;
+		TURNSTILE_SECRET_KEY?: string;
 	}
 }

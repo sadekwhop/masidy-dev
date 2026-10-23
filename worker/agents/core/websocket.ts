@@ -41,7 +41,7 @@ export async function handleWebSocketMessage(
                 logger.info(`Received session init message from ${connection.id}, Disable for now`);
                 break;
             }
-            case WebSocketMessageRequests.GENERATE_ALL:
+            case WebSocketMessageRequests.GENERATE_ALL: {
                 // Set shouldBeGenerating flag to indicate persistent intent
                 agent.setState({ 
                     ...agent.state, 
@@ -87,6 +87,7 @@ export async function handleWebSocketMessage(
                     }
                 });
                 break;
+            }
             case WebSocketMessageRequests.DEPLOY: {
                 const target = parsedMessage.target ??
                     (agent.state.behaviorType === 'think' ? 'user' : 'platform');

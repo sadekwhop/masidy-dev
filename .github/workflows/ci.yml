@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Typecheck, Lint, Build & Tests (ubuntu-latest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build
+        run: bun run build
+
+      - name: Run Root Tests (Sequentially)
+        run: |
+          set -e
+          # Collect root Vitest test files excluding sdk tests, route tests and monitor-cli
+          test_files=$(git ls-files "*.test.ts" "*.test.tsx" | grep -v "^sdk/" | grep -v "container/monitor-cli.test.ts" | grep -v "worker/api/routes/")
+          echo "Found test files:"
+          echo "$test_files"
+          for file in $test_files; do
+            echo "::group::Running $file"
+            bun run vitest run "$file"
+            echo "::endgroup::"
+          done
+
+      - name: Run SDK Tests
+        run: bun run --cwd sdk test

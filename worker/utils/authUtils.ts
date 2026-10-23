@@ -22,12 +22,16 @@ export function enforceAllowedEmail(
 	email: string,
 	action: 'register' | 'login' | 'oauth',
 ): void {
-	const allowedEmail = env.ALLOWED_EMAIL ?? '';
-	if (!allowedEmail) return;
-	if (email.toLowerCase() !== allowedEmail.toLowerCase()) {
+	const rawAllowed = env.ALLOWED_EMAIL ?? '';
+	if (!rawAllowed.trim()) return;
+	const allowedList = rawAllowed
+		.split(',')
+		.map((e) => e.trim().toLowerCase())
+		.filter(Boolean);
+	if (allowedList.length > 0 && !allowedList.includes(email.toLowerCase())) {
 		throw new SecurityError(
 			SecurityErrorType.UNAUTHORIZED,
-			`Email Whitelisting is enabled. Please use the allowed email to ${action}.`,
+			`Email Whitelisting is enabled. Please use an allowed email to ${action}.`,
 			403,
 		);
 	}
