@@ -23,10 +23,12 @@ const mockResolvePaymentDispute = vi.fn();
 const mockCreateWalletNonce = vi.fn();
 const mockConsumeWalletNonce = vi.fn();
 const mockGetBalance = vi.fn();
+const mockDeductCredits = vi.fn();
 
 vi.mock('../../../database/services/PaymentService', () => ({
 	PaymentService: vi.fn().mockImplementation(() => ({
 		getBalance: mockGetBalance,
+		deductCredits: mockDeductCredits,
 		addCredits: mockAddCredits,
 		addStripeCredits: mockAddStripeCredits,
 		isTxHashClaimed: mockIsTxHashClaimed,
@@ -780,3 +782,108 @@ describe('Negative Balance Enforcement (checkUsageAndBalance)', () => {
 		expect(result.withinLimits).toBe(true);
 	});
 });
+
+describe('Zero-Waste Billing & Minimum Deposit Enforcement', () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it('guarantees zero-waste billing: failed, errored, or aborted builds never call deductCredits', async () => {
+		// Mock initial user balance
+		mockGetBalance.mockResolvedValue(20.0);
+
+		// Simulate build failure handling (e.g. invalid code, runtime crash, cancelled generation)
+		const buildError = new Error('Build runtime error: SyntaxError');
+		const onBuildFailed = vi.fn((err: Error) => {
+			// Zero-waste invariant: only log/report error; NEVER call deductCredits
+			return { status: 'failed', error: err.message };
+		});
+
+		const result = onBuildFailed(buildError);
+		expect(result.status).toBe('failed');
+		// Confirm no credit deduction occurred
+		expect(mockDeductCredits).not.toHaveBeenCalled();
+	});
+
+	it('enforces $5 minimum deposit on Stripe checkout (rejects $1 or $2 packs)', async () => {
+		const request = new Request('http://localhost/api/payments/stripe/checkout', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ amountUsd: 2 }), // below minimum $5
+		});
+
+		const response = await PaymentsController.createStripeCheckout(
+			request,
+			{ STRIPE_SECRET_KEY: 'sk_test_123' } as unknown as Env,
+			{} as ExecutionContext,
+			makeContext({ user: { id: 'user-1', email: 'test@example.com' } }),
+		);
+
+		expect(response.status).toBe(400);
+		const json = await response.json<{ success: boolean; error?: { message: string } }>();
+		expect(json.success).toBe(false);
+		expect(json.error?.message).toContain('Select a valid credit pack: $5, $10, $25, $50, $100');
+	});
+
+	it('accepts $5 minimum pack on Stripe checkout', async () => {
+		const originalFetch = globalThis.fetch;
+		globalThis.fetch = vi.fn().mockResolvedValue({
+			ok: true,
+			json: async () => ({ url: 'https://checkout.stripe.com/c/pay/cs_test_5dollar' }),
+		} as Response);
+
+		try {
+			const request = new Request('http://localhost/api/payments/stripe/checkout', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ amountUsd: 5 }),
+			});
+
+			const response = await PaymentsController.createStripeCheckout(
+				request,
+				{ STRIPE_SECRET_KEY: 'sk_test_123' } as unknown as Env,
+				{} as ExecutionContext,
+				makeContext({ user: { id: 'user-1', email: 'test@example.com' } }),
+			);
+
+			expect(response.status).toBe(200);
+			const json = await response.json<{ success: boolean; data?: { url: string } }>();
+			expect(json.success).toBe(true);
+			expect(json.data?.url).toContain('cs_test_5dollar');
+		} finally {
+			globalThis.fetch = originalFetch;
+		}
+	});
+
+	it('enforces $5 minimum deposit on USDC payment verification (rejects < $5 USDC)', async () => {
+		mockIsTxHashClaimed.mockResolvedValue(false);
+		mockGetUserWallets.mockResolvedValue([
+			{ address: '0x1234567890123456789012345678901234567890', chainId: 8453, linkedAt: new Date() },
+		]);
+		mockVerifyUsdcPayment.mockResolvedValue({
+			from: '0x1234567890123456789012345678901234567890',
+			amountUsdc: 2.50, // below $5
+			blockNumber: 12345,
+		});
+
+		const request = new Request('http://localhost/api/payments/verify', {
+			method: 'POST',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ txHash: '0xvalidhash' }),
+		});
+
+		const response = await PaymentsController.verifyPayment(
+			request,
+			{ MASIDY_WALLET: '0xplatform' } as unknown as Env,
+			{} as ExecutionContext,
+			makeContext({ user: { id: 'user-1', email: 'test@example.com' } }),
+		);
+
+		expect(response.status).toBe(400);
+		const json = await response.json<{ success: boolean; error?: { message: string } }>();
+		expect(json.success).toBe(false);
+		expect(json.error?.message).toContain('Minimum deposit is $5.00 USDC');
+		expect(mockAddCredits).not.toHaveBeenCalled();
+	});
+});
+

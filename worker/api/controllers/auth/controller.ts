@@ -63,6 +63,34 @@ export class AuthController extends BaseController {
 
             const validatedData = registerSchema.parse(bodyResult.data);
 
+            if (env.TURNSTILE_SECRET_KEY) {
+                if (!validatedData.turnstileToken) {
+                    return AuthController.createErrorResponse('Bot verification challenge is required', 400);
+                }
+
+                try {
+                    const clientIp = request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || '';
+                    const formData = new URLSearchParams();
+                    formData.append('secret', env.TURNSTILE_SECRET_KEY);
+                    formData.append('response', validatedData.turnstileToken);
+                    if (clientIp) formData.append('remoteip', clientIp);
+
+                    const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+                        method: 'POST',
+                        body: formData,
+                        headers: { 'content-type': 'application/x-www-form-urlencoded' },
+                    });
+
+                    const verifyData = (await verifyRes.json()) as { success: boolean };
+                    if (!verifyData.success) {
+                        return AuthController.createErrorResponse('Bot verification challenge failed. Please try again.', 400);
+                    }
+                } catch (err) {
+                    AuthController.logger.error('Turnstile verification error during registration', err);
+                    return AuthController.createErrorResponse('Verification service temporarily unavailable', 503);
+                }
+            }
+
             const authService = new AuthService(env);
             const result = await authService.register(validatedData, request);
             

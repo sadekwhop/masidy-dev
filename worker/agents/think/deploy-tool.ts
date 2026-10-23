@@ -25,6 +25,9 @@ export function createDeploySpaceTool(opts: {
 	getPreviewUrl?: () => string | undefined;
 }): Tool {
 	const { getStub, getPreviewUrl } = opts;
+	let consecutiveDeployFailures = 0;
+	const MAX_CONSECUTIVE_DEPLOY_FAILURES = 3;
+
 	return tool({
 		description: DESCRIPTION,
 		inputSchema: z.object({
@@ -34,6 +37,12 @@ export function createDeploySpaceTool(opts: {
 				.describe("Git branch to deploy. Defaults to 'main'."),
 		}),
 		execute: async (args: { branch?: string }) => {
+			if (consecutiveDeployFailures >= MAX_CONSECUTIVE_DEPLOY_FAILURES) {
+				return JSON.stringify({
+					error: `RETRY_CAP_REACHED: ${MAX_CONSECUTIVE_DEPLOY_FAILURES} consecutive deployments failed. Build paused to protect your credits. Please review error logs before attempting to deploy again.`,
+				});
+			}
+
 			const branch = args.branch && args.branch.length > 0 ? args.branch : 'main';
 			try {
 				await withDurableObjectResetRetry(getStub, (stub) =>
@@ -49,11 +58,20 @@ export function createDeploySpaceTool(opts: {
 				if (signedUrl) {
 					output.preview_url = signedUrl;
 				}
+				consecutiveDeployFailures = 0; // reset on successful deploy
 				return JSON.stringify(output, null, 2);
 			} catch (e) {
+				consecutiveDeployFailures++;
+				const errMsg = e instanceof Error ? e.message : String(e);
+				if (consecutiveDeployFailures >= MAX_CONSECUTIVE_DEPLOY_FAILURES) {
+					return JSON.stringify({
+						branch,
+						error: `Deploy failed: ${errMsg}. RETRY_CAP_REACHED: ${MAX_CONSECUTIVE_DEPLOY_FAILURES} consecutive deployment failures reached. Generation paused to avoid wasting credits.`,
+					});
+				}
 				return JSON.stringify({
 					branch,
-					error: `Deploy failed: ${e instanceof Error ? e.message : String(e)}`,
+					error: `Deploy failed: ${errMsg}`,
 				});
 			}
 		},

@@ -304,7 +304,7 @@ Gives you standard JSX-like syntax using native JavaScript tagged template liter
     "imports": {
       "preact": "https://esm.sh/preact@10.25.4",
       "preact/hooks": "https://esm.sh/preact@10.25.4/hooks",
-      "htm/preact": "https://esm.sh/htm@3.1.1/preact"
+      "htm/preact": "https://esm.sh/htm@3.1.1/preact?external=preact"
     }
   }
   </script>

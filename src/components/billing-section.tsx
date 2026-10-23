@@ -27,8 +27,9 @@ const BASE_CHAIN_ID_HEX = '0x2105';
 // USDC on Base mainnet
 const USDC_CONTRACT = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
 
-// Preset credit packages for Stripe checkout
+// Preset credit packages for Stripe checkout ($5 min everywhere)
 const STRIPE_CREDIT_PACKS = [
+	{ amount: 5, label: '$5', credits: '5 credits' },
 	{ amount: 10, label: '$10', credits: '10 credits' },
 	{ amount: 25, label: '$25', credits: '25 credits', popular: true },
 	{ amount: 50, label: '$50', credits: '50 credits' },
@@ -257,8 +258,8 @@ export function BillingSection() {
 
 	const handleMetaMaskPay = async () => {
 		const amount = parseFloat(payAmount);
-		if (!amount || amount <= 0 || !walletAddress) {
-			toast.error('Enter a valid amount and ensure platform wallet is loaded');
+		if (!amount || amount < 5 || !walletAddress) {
+			toast.error('Minimum payment is $5.00 USDC');
 			return;
 		}
 

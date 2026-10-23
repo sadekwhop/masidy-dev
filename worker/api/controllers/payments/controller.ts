@@ -137,6 +137,14 @@ export class PaymentsController extends BaseController {
 			);
 		}
 
+		// Enforce platform-wide minimum deposit of $5.00
+		if (verified.amountUsdc < 5) {
+			return PaymentsController.createErrorResponse(
+				'Minimum deposit is $5.00 USDC.',
+				400,
+			);
+		}
+
 		// Beta rule: check per-user maximum deposit cap if configured via env
 		const rawMaxCap = env.MAX_USER_DEPOSIT_USD;
 		const maxDepositCap = rawMaxCap ? Number(rawMaxCap) : undefined;
@@ -441,7 +449,7 @@ export class PaymentsController extends BaseController {
 		}
 
 		const { amountUsd } = bodyResult.data;
-		const allowedAmounts = [10, 25, 50, 100];
+		const allowedAmounts = [5, 10, 25, 50, 100];
 		if (!amountUsd || !allowedAmounts.includes(amountUsd)) {
 			return PaymentsController.createErrorResponse(
 				`Select a valid credit pack: $${allowedAmounts.join(', $')}`,

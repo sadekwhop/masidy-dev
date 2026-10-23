@@ -15,7 +15,7 @@ function LegalPageLayout({
 						← Back to Masidy
 					</Link>
 					<h1 className="text-3xl font-semibold">{title}</h1>
-					<p className="text-sm text-kumo-subtle">Last updated: October 21, 2026</p>
+					<p className="text-sm text-kumo-subtle">Last updated: October 24, 2026</p>
 				</header>
 				<div className="space-y-6 text-sm leading-7 text-kumo-subtle [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-kumo-default [&_p]:mb-3 [&_ul]:mb-3 [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-6">
 					{children}
@@ -36,7 +36,7 @@ export function TermsPage() {
 		<LegalPageLayout title="Masidy Terms of Service">
 			<p>
 				These Terms govern your access to and use of Masidy, an AI-assisted
-				application-building service operated by Ragab Sadek in Varese, Italy.
+				application-building service operated by Ragab Sadek.
 				By using Masidy, you agree to these Terms. If you do not agree, do not
 				use the service.
 			</p>
@@ -104,7 +104,7 @@ export function TermsPage() {
 			<section>
 				<h2>7. Applicable law and contact</h2>
 				<p>
-					These Terms are governed by the laws of Italy, without limiting
+					These Terms are governed by applicable law, without limiting
 					mandatory protections available to consumers in their place of
 					residence. Contact{' '}
 					<a className="underline" href="mailto:info@ragabsadek.me">
@@ -121,7 +121,7 @@ export function PrivacyPage() {
 	return (
 		<LegalPageLayout title="Masidy Privacy Policy">
 			<p>
-				This policy explains how Ragab Sadek, based in Varese, Italy, handles
+				This policy explains how Ragab Sadek handles
 				personal data when you use Masidy. For privacy questions or requests,
 				contact{' '}
 				<a className="underline" href="mailto:info@ragabsadek.me">
@@ -197,9 +197,8 @@ export function PrivacyPage() {
 					to, correction or deletion of your personal data, restrict or object
 					to certain processing, request data portability, or withdraw consent
 					where processing is based on consent. Contact us to exercise these
-					rights. You may also lodge a complaint with your local data
-					protection authority; in Italy, this is the Garante per la
-					protezione dei dati personali.
+					rights. You may also lodge a complaint with your competent data
+					protection authority.
 				</p>
 			</section>
 			<section>
