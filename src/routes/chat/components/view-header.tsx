@@ -1,3 +1,4 @@
+import { cn } from '@cloudflare/kumo';
 import type { ReactNode } from 'react';
 import { ViewModeSwitch } from './view-mode-switch';
 import { HEADER_STYLES } from './view-header-styles';
@@ -31,8 +32,11 @@ export function ViewHeader({
 	repoAvailable,
 }: ViewHeaderProps) {
 	return (
-		<div className={`grid grid-cols-3 ${HEADER_STYLES.padding} ${HEADER_STYLES.container}`}>
-			<div className="flex items-center">
+		<div className={cn(
+			'min-h-10 bg-kumo-elevated border-b flex items-center justify-between px-2 gap-2 w-full min-w-0',
+			HEADER_STYLES.padding
+		)}>
+			<div className="flex items-center shrink-0">
 				<ViewModeSwitch
 					view={view}
 					onChange={onViewChange}
@@ -45,10 +49,10 @@ export function ViewHeader({
 					repoAvailable={repoAvailable}
 				/>
 			</div>
-			<div className="flex min-w-0 items-center justify-center">
+			<div className="hidden sm:flex min-w-0 flex-1 items-center justify-center truncate px-2">
 				{centerContent}
 			</div>
-			<div className="flex items-center justify-end">
+			<div className="flex items-center justify-end shrink-0 gap-1">
 				{rightActions}
 			</div>
 		</div>

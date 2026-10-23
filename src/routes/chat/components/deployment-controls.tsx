@@ -409,8 +409,8 @@ export function DeploymentControls({
 						<div className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">
 							Live URL:
 						</div>
-						<div className="flex items-center gap-2">
-							<code className="flex-1 text-sm font-mono text-green-800 dark:text-green-200 bg-green-50/50 dark:bg-green-950/30 px-2 py-1 rounded text-ellipsis overflow-hidden">
+						<div className="flex items-center gap-2 min-w-0">
+							<code className="flex-1 text-xs sm:text-sm font-mono text-green-800 dark:text-green-200 bg-green-50/50 dark:bg-green-950/30 px-2 py-1 rounded truncate min-w-0">
 								{deploymentUrl}
 							</code>
 							<Button
@@ -432,8 +432,8 @@ export function DeploymentControls({
 								<Share2 className="w-3 h-3" />
 								Shareable Link:
 							</div>
-							<div className="flex items-center gap-2">
-								<code className="flex-1 text-sm font-mono text-kumo-brand bg-brand/5 px-2 py-1 rounded text-ellipsis overflow-hidden">
+							<div className="flex items-center gap-2 min-w-0">
+								<code className="flex-1 text-xs sm:text-sm font-mono text-kumo-brand bg-brand/5 px-2 py-1 rounded truncate min-w-0">
 									{window.location.origin}/app/{appId}
 								</code>
 								<Button
@@ -454,8 +454,10 @@ export function DeploymentControls({
 					{/* Action Buttons - Enhanced with visibility toggle */}
 					<div
 						className={cn(
-							'grid gap-3',
-							isRedeployReady ? 'grid-cols-3' : 'grid-cols-2',
+							'grid gap-2 sm:gap-3',
+							isRedeployReady
+								? 'grid-cols-1 sm:grid-cols-3'
+								: 'grid-cols-1 sm:grid-cols-2',
 						)}
 					>
 						{/* View Live Site Button */}

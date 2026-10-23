@@ -701,7 +701,7 @@ export default function AppView() {
 					]}
 				/>
 
-				<div className="shrink-0 flex items-center gap-2 max-w-full">
+				<div className="shrink-0 flex items-center gap-1.5 sm:gap-2 max-w-full flex-wrap sm:flex-nowrap">
 					{isSignedIn && (
 						<>
 							<Button

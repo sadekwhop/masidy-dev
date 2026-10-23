@@ -14,9 +14,10 @@ import {
 } from 'react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ExternalLink, LoaderCircle, RotateCcw, Zap } from 'lucide-react';
+import { ExternalLink, LoaderCircle, RotateCcw, Zap, Code, Eye } from 'lucide-react';
 import {
 	BookmarkSimpleIcon,
+	ChatCircleDots,
 	DotsThree,
 	DotsThreeIcon,
 	GitBranch,
@@ -358,6 +359,7 @@ function ChatSession() {
 		| 'database'
 		| 'repo'
 	>('editor');
+	const [mobileTab, setMobileTab] = useState<'chat' | 'preview'>('chat');
 
 	// Terminal state
 	// const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>([]);
@@ -392,16 +394,16 @@ function ChatSession() {
 
 		return {
 			leading: (
-				<div className="min-w-0 flex-1 flex items-center gap-2">
+				<div className="min-w-0 flex-1 flex items-center gap-1.5 sm:gap-2">
 					<div
-						className="text-sm font-semibold max-w-sm truncate min-w-0"
+						className="text-xs sm:text-sm font-semibold max-w-[100px] xs:max-w-[150px] sm:max-w-xs md:max-w-sm truncate min-w-0"
 						title={headerTitle || undefined}
 					>
 						{headerTitle}
 					</div>
 					{app?.visibility && (
 						<Badge
-							className="shrink-0"
+							className="shrink-0 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5"
 							variant={
 								app.visibility === 'private'
 									? 'secondary'
@@ -409,30 +411,34 @@ function ChatSession() {
 							}
 						>
 							<span className="inline-flex items-center gap-1">
-								<Globe className="h-3 w-3" weight="duotone" />
-								{capitalizeFirstLetter(app.visibility)}
+								<Globe className="size-3" weight="duotone" />
+								<span className="hidden sm:inline">
+									{capitalizeFirstLetter(app.visibility)}
+								</span>
 							</span>
 						</Badge>
 					)}
 				</div>
 			),
 			trailing: (
-				<>
+				<div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
 					{behaviorType === 'think' && chatId && !appLoading && (
 						<>
 							{cloudflareDeploymentUrl && (
 								<Button
 									variant="ghost"
-									className="h-8 shrink-0 px-2 text-xs text-text-tertiary hover:bg-kumo-elevated hover:text-text-primary"
+									className="h-8 shrink-0 px-1.5 sm:px-2 text-xs text-text-tertiary hover:bg-kumo-elevated hover:text-text-primary"
 									onClick={handleOpenLiveView}
+									title="View Live site"
 								>
 									<ExternalLink className="size-3.5" />
-									View Live
+									<span className="hidden sm:inline">View Live</span>
 								</Button>
 							)}
 							<Button
 								variant="secondary"
 								size="sm"
+								className="h-8 shrink-0 px-2 sm:px-3 text-xs"
 								disabled={isDeploying || files.length === 0}
 								onClick={() =>
 									handleDeployToCloudflare(
@@ -440,17 +446,26 @@ function ChatSession() {
 										'platform',
 									)
 								}
+								title={
+									isDeploying
+										? 'Publishing...'
+										: cloudflareDeploymentUrl
+											? 'Redeploy'
+											: 'Publish'
+								}
 							>
 								{isDeploying ? (
 									<LoaderCircle className="size-3.5 animate-spin" />
 								) : (
 									<Zap className="size-3.5" />
 								)}
-								{isDeploying
-									? 'Publishing...'
-									: cloudflareDeploymentUrl
-										? 'Redeploy'
-										: 'Publish'}
+								<span className="hidden xs:inline">
+									{isDeploying
+										? 'Publishing...'
+										: cloudflareDeploymentUrl
+											? 'Redeploy'
+											: 'Publish'}
+								</span>
 							</Button>
 						</>
 					)}
@@ -458,6 +473,7 @@ function ChatSession() {
 						<Button
 							variant="secondary"
 							size="sm"
+							className="h-8 shrink-0 px-2 text-xs"
 							onClick={handleToggleVisibility}
 							disabled={isUpdatingVisibility}
 							loading={isUpdatingVisibility}
@@ -467,18 +483,21 @@ function ChatSession() {
 									weight="duotone"
 								/>
 							}
+							title="Make public"
 						>
-							Make public
+							<span className="hidden sm:inline">Make public</span>
 						</Button>
 					)}
 					{isOwner && app?.visibility === 'public' && (
 						<Button
 							variant="secondary"
 							size="sm"
+							className="h-8 shrink-0 px-2 text-xs"
 							onClick={() => navigate(`/app/${app.id}`)}
 							icon={<ExternalLink className="size-3.5" />}
+							title="View public preview"
 						>
-							View public preview
+							<span className="hidden sm:inline">Preview</span>
 						</Button>
 					)}
 					{app && (
@@ -520,7 +539,7 @@ function ChatSession() {
 							</DropdownMenu.Content>
 						</DropdownMenu>
 					)}
-				</>
+				</div>
 			),
 		};
 	}, [
@@ -660,6 +679,7 @@ function ChatSession() {
 		clearEdit();
 		setActiveFilePath(file.filePath);
 		setView('editor');
+		setMobileTab('preview');
 		if (!hasSwitchedFile.current) {
 			hasSwitchedFile.current = true;
 		}
@@ -678,6 +698,7 @@ function ChatSession() {
 				| 'repo',
 		) => {
 			setView(mode);
+			setMobileTab('preview');
 		},
 		[],
 	);
@@ -903,6 +924,7 @@ function ChatSession() {
 					setShowTooltip(false);
 				}, 3000);
 				hasSeenPreview.current = true;
+				setMobileTab('preview');
 			}
 		}
 
@@ -1132,12 +1154,108 @@ function ChatSession() {
 				{headerTitle ? `${headerTitle} - Masidy` : 'Chat - Masidy'}
 			</title>
 			<div className="size-full flex flex-col min-h-0 text-text-primary">
-				<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
+				{showMainView && (
+					<div className="lg:hidden flex items-center justify-between px-3 py-1.5 border-b border-kumo-line bg-kumo-elevated/80 backdrop-blur-md shrink-0 z-20">
+						<div className="flex items-center gap-1 bg-kumo-base/90 p-0.5 rounded-lg border border-kumo-line/60">
+							<button
+								type="button"
+								onClick={() => setMobileTab('chat')}
+								className={cn(
+									'flex items-center gap-1.5 px-3 py-1 text-xs rounded-md transition-all',
+									mobileTab === 'chat'
+										? 'bg-kumo-elevated text-text-primary shadow-xs font-semibold'
+										: 'text-text-tertiary hover:text-text-primary',
+								)}
+							>
+								<ChatCircleDots className="size-3.5" />
+								<span>Chat</span>
+								{(isGenerating || isThinking) && (
+									<span className="relative flex h-2 w-2">
+										<span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand opacity-75"></span>
+										<span className="relative inline-flex rounded-full h-2 w-2 bg-brand"></span>
+									</span>
+								)}
+							</button>
+							<button
+								type="button"
+								onClick={() => setMobileTab('preview')}
+								className={cn(
+									'flex items-center gap-1.5 px-3 py-1 text-xs rounded-md transition-all',
+									mobileTab === 'preview'
+										? 'bg-kumo-elevated text-text-primary shadow-xs font-semibold'
+										: 'text-text-tertiary hover:text-text-primary',
+								)}
+							>
+								{view === 'editor' ? (
+									<Code className="size-3.5" />
+								) : (
+									<Eye className="size-3.5" />
+								)}
+								<span>{view === 'editor' ? 'Code' : 'Preview'}</span>
+								{previewUrl && (
+									<span className="size-1.5 rounded-full bg-emerald-500" />
+								)}
+							</button>
+						</div>
+
+						<div className="flex items-center gap-1.5">
+							{cloudflareDeploymentUrl ? (
+								<Button
+									variant="ghost"
+									size="sm"
+									className="h-7 px-2 text-xs text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+									onClick={handleOpenLiveView}
+									title="View Live App"
+								>
+									<ExternalLink className="size-3" />
+									<span>Live</span>
+								</Button>
+							) : null}
+							<Button
+								variant="secondary"
+								size="sm"
+								className="h-7 px-2.5 text-xs"
+								disabled={isDeploying || files.length === 0}
+								onClick={() =>
+									handleDeployToCloudflare(
+										chatId || '',
+										'platform',
+									)
+								}
+								title={
+									isDeploying
+										? 'Deploying...'
+										: cloudflareDeploymentUrl
+											? 'Redeploy'
+											: 'Deploy'
+								}
+							>
+								{isDeploying ? (
+									<LoaderCircle className="size-3 animate-spin" />
+								) : (
+									<Zap className="size-3" />
+								)}
+								<span>
+									{isDeploying
+										? 'Deploying...'
+										: cloudflareDeploymentUrl
+											? 'Redeploy'
+											: 'Deploy'}
+								</span>
+							</Button>
+						</div>
+					</div>
+				)}
+				<div className="flex-1 flex min-h-0 overflow-hidden justify-center relative">
 					<motion.div
 						layout="position"
 						className={cn(
-							'flex-1 shrink-0 flex flex-col basis-0 relative z-10 h-full min-h-0',
-							showMainView ? 'max-w-xl' : 'max-w-3xl',
+							'relative z-10 h-full min-h-0',
+							'lg:flex lg:flex-1 lg:shrink-0 lg:basis-0',
+							showMainView ? 'lg:max-w-xl' : 'lg:max-w-3xl',
+							mobileTab === 'chat'
+								? 'flex flex-1 w-full flex-col'
+								: 'hidden lg:flex',
 						)}
 					>
 						<div
@@ -1414,7 +1532,13 @@ function ChatSession() {
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
 								exit={{ opacity: 0 }}
-								className="flex-1 flex shrink-0 basis-0 z-30 min-h-0"
+								className={cn(
+									'z-30 min-h-0 h-full',
+									'lg:flex lg:flex-1 lg:shrink-0 lg:basis-0',
+									mobileTab === 'preview'
+										? 'flex flex-1 w-full'
+										: 'hidden lg:flex',
+								)}
 							>
 								<MainContentPanel
 									view={view}

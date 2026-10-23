@@ -186,7 +186,7 @@ export function FileExplorer({
 	return (
 		<div
 			className={cn(
-				'w-full max-w-[200px] bg-kumo-base border-r h-full overflow-y-auto',
+				'w-full max-w-[130px] sm:max-w-[200px] bg-kumo-base border-r h-full overflow-y-auto shrink-0',
 				className,
 			)}
 			role="tree"
