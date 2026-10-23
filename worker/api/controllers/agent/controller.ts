@@ -25,6 +25,7 @@ import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 import { hasTicketParam } from '../../../middleware/auth/ticketAuth';
 import { checkUsageAndBalance, getUserGateway } from '../../../services/rate-limit/usageChecker';
+import { BuildLockService } from '../../../services/rate-limit/BuildLockService';
 import { readTokenCookie } from '../../../utils/oauthCookie';
 import { UsageLimitExceededError } from 'shared/types/errors';
 
@@ -132,6 +133,15 @@ export class CodingAgentController extends BaseController {
             // can pass it down to the inference pipeline for BYOK decryption.
             const userToken = readTokenCookie(request, env);
             const limitResult = await checkUsageAndBalance(env, user.id, request, userToken);
+
+            if (await BuildLockService.isLocked(env, user.id)) {
+                this.logger.warn('Request blocked by concurrent build lock', { userId: user.id });
+                throw new UsageLimitExceededError(
+                    'A build is already in progress for your account. Parallel builds are not permitted during the beta.',
+                    [],
+                    limitResult.hasUserToken,
+                );
+            }
 
             if (!limitResult.allowed) {
                 this.logger.warn('Request blocked by usage check', {

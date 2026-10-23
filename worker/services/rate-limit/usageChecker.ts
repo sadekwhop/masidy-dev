@@ -8,6 +8,7 @@ import { canProceedWithRequest, type CanProceedResult } from 'shared/constants/l
 import { decryptTokens, encryptTokens, type EncryptedTokenData } from '../../utils/tokenEncryption';
 import { CloudflareAccountService } from '../cloudflare/CloudflareAccountService';
 import { UserService } from '../../database/services/UserService';
+import { PaymentService } from '../../database/services/PaymentService';
 import { readTokenCookie, buildTokenCookie, buildClearTokenCookie } from '../../utils/oauthCookie';
 import { CloudflareConnectOAuthProvider } from '../oauth/cloudflare-connect';
 import { createLogger } from '../../logger';
@@ -84,6 +85,29 @@ export async function checkUsageAndBalance(
 	encryptedToken?: string | null,
 	originUrl?: string,
 ): Promise<UsageCheckResult> {
+	// If the user's Masidy credit balance is negative (e.g. from refund or dispute clawback),
+	// explicitly block further agent builds/runs until the balance is restored.
+	if (env.DB) {
+		try {
+			const paymentService = new PaymentService(env);
+			const masidyBalance = await paymentService.getBalance(userId);
+			if (masidyBalance < 0) {
+				return {
+					allowed: false,
+					reason: `Account balance is negative ($${masidyBalance.toFixed(2)}) due to a refund or dispute chargeback. Please top up your credits to resume builds.`,
+					shouldUseByok: false,
+					withinLimits: false,
+					remaining: 0,
+					limit: 0,
+					balance: masidyBalance,
+					hasUserToken: false,
+				};
+			}
+		} catch (error) {
+			logger.warn('Failed to check user credit balance in usageChecker:', error);
+		}
+	}
+
 	// If Cloudflare limits feature is disabled, always allow (self-deployed instances)
 	if (!isCloudflareGatewayLimitsEnabled(env)) {
 		return {

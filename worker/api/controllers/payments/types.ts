@@ -63,3 +63,38 @@ export interface UsageHistoryData {
 	byAction: UsageByActionItem[];
 	totalSpent: number;
 }
+
+export interface UserWalletItem {
+	id: string;
+	address: string;
+	createdAt: Date | null;
+}
+
+export interface UserWalletsData {
+	wallets: UserWalletItem[];
+}
+
+export interface LinkWalletRequest {
+	address: string;
+	message: string;
+	signature: string;
+}
+
+export interface LinkWalletData {
+	success: boolean;
+	wallet: UserWalletItem;
+}
+
+export interface StripeCheckoutRequest {
+	amountUsd: number;
+}
+
+export interface StripeCheckoutData {
+	url: string;
+}
+
+export interface WalletNonceData {
+	nonce: string;
+	expiresAt: string;
+}
+

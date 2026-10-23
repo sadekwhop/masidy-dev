@@ -128,6 +128,13 @@ export const queryKeys = {
 					...queryKeys.account.payments.usageAll(),
 					userId ?? 'anonymous',
 				] as const,
+			walletsAll: () =>
+				[...queryKeys.account.payments.all(), 'wallets'] as const,
+			wallets: (userId?: string | null) =>
+				[
+					...queryKeys.account.payments.walletsAll(),
+					userId ?? 'anonymous',
+				] as const,
 		},
 	},
 };

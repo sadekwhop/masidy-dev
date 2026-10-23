@@ -619,6 +619,40 @@ export const systemSettings = sqliteTable('system_settings', {
 // ========================================
 
 /**
+ * User Wallets table — verified linked blockchain wallets per user.
+ * Prevents transaction hash sniping by ensuring deposits are linked to the user's verified address.
+ */
+export const userWallets = sqliteTable('user_wallets', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    address: text('address').notNull().unique(),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    userIdx: index('user_wallets_user_idx').on(table.userId),
+    addressIdx: uniqueIndex('user_wallets_address_idx').on(table.address),
+}));
+
+export type UserWallet = typeof userWallets.$inferSelect;
+export type NewUserWallet = typeof userWallets.$inferInsert;
+
+/**
+ * Wallet Nonces table — single-use cryptographic challenges for linking wallets.
+ */
+export const walletNonces = sqliteTable('wallet_nonces', {
+    id: text('id').primaryKey(),
+    userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    nonce: text('nonce').notNull().unique(),
+    expiresAt: integer('expires_at', { mode: 'timestamp' }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    userIdx: index('wallet_nonces_user_idx').on(table.userId),
+    nonceIdx: uniqueIndex('wallet_nonces_nonce_idx').on(table.nonce),
+}));
+
+export type WalletNonce = typeof walletNonces.$inferSelect;
+export type NewWalletNonce = typeof walletNonces.$inferInsert;
+
+/**
  * User Credits table — current prepaid credit balance per user.
  * One row per user. Credits are in USD-equivalent (1 credit = $1).
  */
@@ -638,15 +672,19 @@ export const userPayments = sqliteTable('user_payments', {
     id: text('id').primaryKey(),
     userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
     txHash: text('tx_hash').notNull().unique(),
+    paymentIntentId: text('payment_intent_id'),
     amountUsdc: real('amount_usdc').notNull(),
     creditsAdded: real('credits_added').notNull(),
-    status: text('status', { enum: ['pending', 'verified', 'failed'] }).notNull().default('pending'),
+    amountRefunded: real('amount_refunded').notNull().default(0),
+    amountDisputed: real('amount_disputed').notNull().default(0),
+    status: text('status', { enum: ['pending', 'verified', 'failed', 'refunded', 'disputed'] }).notNull().default('pending'),
     chainId: integer('chain_id').notNull().default(8453), // Base mainnet
     createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
     verifiedAt: integer('verified_at', { mode: 'timestamp' }),
 }, (table) => ({
     userIdx: index('user_payments_user_idx').on(table.userId),
     txHashIdx: uniqueIndex('user_payments_tx_hash_idx').on(table.txHash),
+    paymentIntentIdx: index('user_payments_payment_intent_idx').on(table.paymentIntentId),
     statusIdx: index('user_payments_status_idx').on(table.status),
 }));
 

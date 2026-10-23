@@ -66,4 +66,4 @@ EOF
 
 echo "[pre-commit] Running related tests for staged files"
 # Vitest takes file paths as filters.
-bunx vitest related --run --passWithNoTests --exclude "container/**" --exclude "generated/**" --exclude "sdk/test/integration/**" "$@"
+bun x vitest related --run --passWithNoTests --exclude "container/**" --exclude "generated/**" --exclude "sdk/test/integration/**" "$@"

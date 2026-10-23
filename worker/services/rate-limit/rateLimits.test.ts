@@ -30,7 +30,7 @@ describe('RateLimitService.enforceLLMCallsRateLimit', () => {
 
 		await RateLimitService.enforceLLMCallsRateLimit(
 			env,
-			createConfig(),
+			createConfig({ limit: 200 }),
 			'user-1',
 			'Think',
 			'',

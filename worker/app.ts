@@ -41,7 +41,8 @@ export function createApp(env: Env): Hono<AppEnv> {
     // CSRF protection using double-submit cookie pattern with proper GET handling
     app.use('*', async (c, next) => {
         const method = c.req.method.toUpperCase();
-        if (new URL(c.req.url).pathname === '/mcp') {
+        const pathname = new URL(c.req.url).pathname;
+        if (pathname === '/mcp' || pathname === '/api/payments/stripe/webhook') {
             return next();
         }
         

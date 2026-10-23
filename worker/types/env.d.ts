@@ -45,5 +45,8 @@ declare namespace Cloudflare {
 		SENTRY_DSN: string;
 		SERPAPI_KEY: string;
 		JWT_SECRET: string;
+		STRIPE_SECRET_KEY?: string;
+		STRIPE_WEBHOOK_SECRET?: string;
+		BASE_RPC_URL?: string;
 	}
 }

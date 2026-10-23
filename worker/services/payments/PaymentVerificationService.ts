@@ -21,10 +21,12 @@ const TRANSFER_EVENT = parseAbiItem(
 const TRANSFER_TOPIC = toEventSelector(TRANSFER_EVENT);
 const USDC_DECIMALS = 6;
 
-const client = createPublicClient({
-	chain: base,
-	transport: http('https://mainnet.base.org'),
-});
+function getBaseClient(rpcUrl?: string) {
+	return createPublicClient({
+		chain: base,
+		transport: http(rpcUrl?.trim() || 'https://mainnet.base.org'),
+	});
+}
 
 export interface VerifiedPayment {
 	amountUsdc: number;
@@ -39,21 +41,31 @@ export interface VerifiedPayment {
  *
  * Checks:
  * 1. Transaction receipt exists and status === success
- * 2. A Transfer event exists where `to` === platform wallet
- * 3. The token contract is USDC on Base mainnet
+ * 2. At least 1 block confirmation
+ * 3. A Transfer event exists where `to` === platform wallet
+ * 4. The token contract is USDC on Base mainnet
  *
  * Returns the verified amount in USDC (human-readable, e.g. 10.5) or null if invalid.
  */
 export async function verifyUsdcPayment(
 	txHash: string,
 	platformWallet: string,
+	rpcUrl?: string,
 ): Promise<VerifiedPayment | null> {
 	try {
 		const hash = txHash as `0x${string}`;
+		const client = getBaseClient(rpcUrl);
 		const receipt = await client.getTransactionReceipt({ hash });
 
 		if (receipt.status !== 'success') {
 			logger.warn('Transaction not successful', { txHash, status: receipt.status });
+			return null;
+		}
+
+		// Ensure at least 1 block confirmation
+		const latestBlock = await client.getBlockNumber();
+		if (latestBlock < receipt.blockNumber) {
+			logger.warn('Transaction not yet confirmed', { txHash, latestBlock, txBlock: receipt.blockNumber });
 			return null;
 		}
 

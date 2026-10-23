@@ -353,4 +353,11 @@ export type {
   UsageTransactionItem,
   UsageByActionItem,
   UsageHistoryData,
+  UserWalletItem,
+  UserWalletsData,
+  LinkWalletRequest,
+  LinkWalletData,
+  StripeCheckoutRequest,
+  StripeCheckoutData,
+  WalletNonceData,
 } from 'worker/api/controllers/payments/types';

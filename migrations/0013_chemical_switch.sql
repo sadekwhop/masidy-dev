@@ -1,0 +1,1 @@
+ALTER TABLE `user_payments` ADD `amount_disputed` real DEFAULT 0 NOT NULL;

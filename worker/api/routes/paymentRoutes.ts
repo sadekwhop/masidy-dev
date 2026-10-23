@@ -44,4 +44,46 @@ export function setupPaymentRoutes(app: Hono<AppEnv>): void {
 		setAuthLevel(AuthConfig.authenticated),
 		adaptController(PaymentsController, PaymentsController.getUsage),
 	);
+
+	// Get linked blockchain wallets (Anti-sniping)
+	app.get(
+		'/api/payments/wallets',
+		setAuthLevel(AuthConfig.authenticated),
+		adaptController(PaymentsController, PaymentsController.getWallets),
+	);
+
+	// Get a single-use nonce for wallet linking
+	app.post(
+		'/api/payments/wallets/nonce',
+		setAuthLevel(AuthConfig.authenticated),
+		adaptController(PaymentsController, PaymentsController.createWalletNonce),
+	);
+
+	// Link a blockchain wallet with signature verification
+	app.post(
+		'/api/payments/wallets/link',
+		setAuthLevel(AuthConfig.authenticated),
+		adaptController(PaymentsController, PaymentsController.linkWallet),
+	);
+
+	// Unlink a blockchain wallet
+	app.delete(
+		'/api/payments/wallets/:address',
+		setAuthLevel(AuthConfig.authenticated),
+		adaptController(PaymentsController, PaymentsController.unlinkWallet),
+	);
+
+	// Stripe checkout session creation (Card / Apple Pay)
+	app.post(
+		'/api/payments/stripe/checkout',
+		setAuthLevel(AuthConfig.authenticated),
+		adaptController(PaymentsController, PaymentsController.createStripeCheckout),
+	);
+
+	// Stripe webhook receiver (Public, verified via stripe-signature)
+	app.post(
+		'/api/payments/stripe/webhook',
+		setAuthLevel(AuthConfig.public),
+		adaptController(PaymentsController, PaymentsController.handleStripeWebhook),
+	);
 }

@@ -1,6 +1,7 @@
 export { RateLimitService } from './rateLimits';
 export { DORateLimitStore } from './DORateLimitStore';
 export { KVRateLimitStore } from './KVRateLimitStore';
+export { BuildLockService } from './BuildLockService';
 export * from './config';
 export * from './errors';
 export {

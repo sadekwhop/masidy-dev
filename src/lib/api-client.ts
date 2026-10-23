@@ -71,6 +71,12 @@ import type{
 	VerifyPaymentData,
 	PaymentHistoryData,
 	UsageHistoryData,
+	UserWalletsData,
+	LinkWalletRequest,
+	LinkWalletData,
+	StripeCheckoutRequest,
+	StripeCheckoutData,
+	WalletNonceData,
 } from '@/api-types';
 import {
 	RateLimitExceededError,
@@ -1433,6 +1439,51 @@ class ApiClient {
 	 */
 	async getUsageHistory(): Promise<ApiResponse<UsageHistoryData>> {
 		return this.request<UsageHistoryData>('/api/payments/usage');
+	}
+
+	/**
+	 * Get linked blockchain wallets (Anti-sniping protection).
+	 */
+	async getLinkedWallets(): Promise<ApiResponse<UserWalletsData>> {
+		return this.request<UserWalletsData>('/api/payments/wallets');
+	}
+
+	/**
+	 * Request a single-use challenge nonce for linking a blockchain wallet.
+	 */
+	async getWalletNonce(): Promise<ApiResponse<WalletNonceData>> {
+		return this.request<WalletNonceData>('/api/payments/wallets/nonce', {
+			method: 'POST',
+		});
+	}
+
+	/**
+	 * Link a blockchain wallet with signature verification.
+	 */
+	async linkWallet(data: LinkWalletRequest): Promise<ApiResponse<LinkWalletData>> {
+		return this.request<LinkWalletData>('/api/payments/wallets/link', {
+			method: 'POST',
+			body: data,
+		});
+	}
+
+	/**
+	 * Unlink a blockchain wallet from the account.
+	 */
+	async unlinkWallet(address: string): Promise<ApiResponse<{ success: boolean }>> {
+		return this.request<{ success: boolean }>(`/api/payments/wallets/${encodeURIComponent(address)}`, {
+			method: 'DELETE',
+		});
+	}
+
+	/**
+	 * Create a Stripe checkout session for purchasing credits via Card / Apple Pay.
+	 */
+	async createStripeCheckout(amountUsd: number): Promise<ApiResponse<StripeCheckoutData>> {
+		return this.request<StripeCheckoutData>('/api/payments/stripe/checkout', {
+			method: 'POST',
+			body: { amountUsd } as StripeCheckoutRequest,
+		});
 	}
 }
 

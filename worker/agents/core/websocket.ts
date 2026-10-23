@@ -4,7 +4,7 @@ import { WebSocketMessageRequests, WebSocketMessageResponses } from '../constant
 import { WebSocketMessage, WebSocketMessageData, WebSocketMessageType } from '../../api/websocketTypes';
 import { MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_SIZE_BYTES, type ImageAttachment } from '../../types/image-attachment';
 import { type CredentialsPayload } from '../inferutils/config.types';
-import { checkUsageAndBalance } from '../../services/rate-limit';
+import { checkUsageAndBalance, BuildLockService } from '../../services/rate-limit';
 import type { CodeGeneratorAgent } from './codingAgent';
 import type { DeploymentTarget } from './types';
 
@@ -55,6 +55,20 @@ export async function handleWebSocketMessage(
                     //     message: 'Code generation is already in progress'
                     // });
                     return;
+                }
+
+                // Beta rule: check if user already has an active build on another project
+                const currentUserId = agent.state.metadata?.userId;
+                if (currentUserId) {
+                    const isLocked = await BuildLockService.isLocked(agent.env, currentUserId);
+                    if (isLocked) {
+                        sendToConnection(connection, WebSocketMessageResponses.ERROR, {
+                            error: 'A build is already in progress for your account. Only one active build is allowed at a time.',
+                            code: 'CONCURRENT_BUILD_LIMIT',
+                            showAsPopup: true,
+                        });
+                        return;
+                    }
                 }
                 
                 // Start generation process
@@ -267,6 +281,19 @@ export async function handleWebSocketMessage(
                             showAsPopup: true,
                         });
                         return;
+                    }
+
+                    // Check if another build is active for this user across any project
+                    if (!agent.getBehavior().isCodeGenerating()) {
+                        const isLocked = await BuildLockService.isLocked(env, userId);
+                        if (isLocked) {
+                            sendToConnection(connection, WebSocketMessageResponses.ERROR, {
+                                error: 'A build is already in progress for your account. Only one active build is allowed at a time.',
+                                code: 'CONCURRENT_BUILD_LIMIT',
+                                showAsPopup: true,
+                            });
+                            return;
+                        }
                     }
                     
                 } catch (error) {

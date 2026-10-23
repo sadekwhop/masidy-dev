@@ -35,6 +35,11 @@ export interface RateLimitResult {
     periodSeconds?: number;
 }
 
+export interface LockResult {
+    acquired: boolean;
+    remainingSeconds?: number;
+}
+
 /**
  * DORateLimitStore - Durable Object-based rate limiting store
  * 
@@ -47,9 +52,72 @@ export class DORateLimitStore extends DurableObject<Env> {
         lastCleanup: Date.now()
     };
     private initialized = false;
+    private activeLocks: Map<string, { expiresAt: number; holderId?: string }> = new Map();
 
     constructor(ctx: DurableObjectState, env: Env) {
         super(ctx, env);
+    }
+
+    /**
+     * Acquire a concurrency lock with a TTL.
+     * Prevents parallel operations (e.g. concurrent builds) per user.
+     */
+    async acquireLock(
+        key: string,
+        ttlSeconds: number = 300,
+        holderId?: string,
+    ): Promise<LockResult> {
+        const now = Date.now();
+        const existing = this.activeLocks.get(key);
+
+        if (existing && existing.expiresAt > now) {
+            // Re-entrant / renewal by the same holder
+            if (holderId && existing.holderId === holderId) {
+                existing.expiresAt = now + ttlSeconds * 1000;
+                return { acquired: true };
+            }
+            const remainingSeconds = Math.ceil((existing.expiresAt - now) / 1000);
+            return { acquired: false, remainingSeconds };
+        }
+
+        this.activeLocks.set(key, {
+            expiresAt: now + ttlSeconds * 1000,
+            holderId,
+        });
+
+        return { acquired: true };
+    }
+
+    /**
+     * Release a concurrency lock.
+     */
+    async releaseLock(key: string, holderId?: string): Promise<boolean> {
+        const existing = this.activeLocks.get(key);
+        if (!existing) {
+            return false;
+        }
+
+        if (holderId && existing.holderId && existing.holderId !== holderId) {
+            return false;
+        }
+
+        this.activeLocks.delete(key);
+        return true;
+    }
+
+    /**
+     * Check if a lock is currently active.
+     */
+    async isLocked(key: string): Promise<boolean> {
+        const now = Date.now();
+        const existing = this.activeLocks.get(key);
+        if (existing && existing.expiresAt > now) {
+            return true;
+        }
+        if (existing) {
+            this.activeLocks.delete(key);
+        }
+        return false;
     }
 
     async increment(key: string, config: RateLimitConfig, incrementBy: number = 1): Promise<RateLimitResult> {

@@ -43,6 +43,7 @@ import { generatePortToken } from 'worker/utils/cryptoUtils';
 import { getProtocolForHost, resolvePreviewHost } from 'worker/utils/urls';
 import { isDev } from 'worker/utils/envs';
 import { InMemoryAnalyzer } from '../../../services/static-analysis';
+import { BuildLockService } from '../../../services/rate-limit/BuildLockService';
 import { getBrowserCaptureClient } from '../../../services/browser-capture/factory';
 import type { BrowserConsoleCaptureResult } from '../../../services/browser-capture/types';
 
@@ -464,6 +465,25 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
     }
 
     private async buildWrapper() {
+        const userId = this.state.metadata?.userId;
+        const agentId = this.getAgentId();
+        let lockAcquired = false;
+
+        if (userId) {
+            const lockResult = await BuildLockService.acquire(this.env, userId, agentId, 300);
+            if (!lockResult.acquired) {
+                const waitMsg = lockResult.remainingSeconds
+                    ? ` (~${lockResult.remainingSeconds}s remaining)`
+                    : '';
+                this.logger.warn(`Build rejected: another build already in progress for user ${userId}`);
+                this.broadcast(WebSocketMessageResponses.ERROR, {
+                    error: `A build is already in progress for your account${waitMsg}. Only one active build is allowed at a time.`,
+                });
+                return;
+            }
+            lockAcquired = true;
+        }
+
         this.broadcast(WebSocketMessageResponses.GENERATION_STARTED, {
             message: 'Starting code generation',
             totalFiles: this.getTotalFiles()
@@ -482,6 +502,9 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 this.broadcastError("Error during generation", error);
             }
         } finally {
+            if (userId && lockAcquired) {
+                await BuildLockService.release(this.env, userId, agentId);
+            }
             // Clear abort controller after generation completes
             this.clearAbortController();
             
