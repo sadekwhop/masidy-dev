@@ -22,6 +22,30 @@ import type {
 
 const PAGE_LOAD_TIMEOUT_MS = 30_000;
 
+/**
+ * Platform-level URLs that are injected by or probed against the Masidy
+ * platform itself (the preview fetch-patch, the WebMCP browser spec probe
+ * against /mcp, etc.). These appear in the console of every preview page
+ * regardless of app content and must be filtered from what the agent sees,
+ * otherwise the console will never look "clean" and the verification gate
+ * will always fail.
+ */
+const PLATFORM_NOISE_URL_PATTERNS = [
+	// Masidy's own MCP endpoint — probed automatically by the WebMCP browser
+	// spec (Chrome 146+) and by WebMCP browser extensions on every page load.
+	// The 402 payment-required response is not an app bug.
+	'/mcp',
+];
+
+function isPlatformNoiseUrl(url: string): boolean {
+	try {
+		const pathname = new URL(url).pathname;
+		return PLATFORM_NOISE_URL_PATTERNS.some((p) => pathname === p || pathname.startsWith(p + '/'));
+	} catch {
+		return PLATFORM_NOISE_URL_PATTERNS.some((p) => url.includes(p));
+	}
+}
+
 export async function runCapture(
 	page: CapturePage,
 	payload: CapturePayload,
@@ -46,8 +70,10 @@ export async function runCapture(
 	});
 	page.on('requestfailed', (req) => {
 		try {
+			const url = req.url();
+			if (isPlatformNoiseUrl(url)) return; // platform probe, not an app bug
 			requestFailures.push({
-				url: req.url(),
+				url,
 				method: req.method(),
 				failure: req.failure()?.errorText ?? 'unknown',
 			});
@@ -59,8 +85,10 @@ export async function runCapture(
 		try {
 			const status = res.status();
 			if (status >= 400) {
+				const url = res.url();
+				if (isPlatformNoiseUrl(url)) return; // platform probe, not an app bug
 				requestFailures.push({
-					url: res.url(),
+					url,
 					method: res.request().method(),
 					failure: `HTTP ${status}`,
 					status,
@@ -120,6 +148,15 @@ const DOM_AUDIT_SCRIPT = /* javascript */ `
     } catch { return '?'; }
   }
 
+  function isAriaHidden(el) {
+    let cur = el;
+    while (cur && cur !== document.body) {
+      if (cur.getAttribute('aria-hidden') === 'true') return true;
+      cur = cur.parentElement;
+    }
+    return false;
+  }
+
   function luminance(r, g, b) {
     const s = [r, g, b].map(function(c) {
       c /= 255;
@@ -151,33 +188,41 @@ const DOM_AUDIT_SCRIPT = /* javascript */ `
     return '#' + [m[1],m[2],m[3]].map(function(x){return ('0'+parseInt(x).toString(16)).slice(-2);}).join('');
   }
 
-  // 1. Low contrast on primary CTA buttons and link text
-  const ctaSelectors = 'button, a[href], [role="button"], input[type="submit"], input[type="button"]';
-  document.querySelectorAll(ctaSelectors).forEach(function(el) {
+  // 1. Low contrast on primary CTA buttons only (skip aria-hidden, skip empty/icon-only elements)
+  document.querySelectorAll('button, a[href], input[type="submit"], input[type="button"]').forEach(function(el) {
     try {
+      if (isAriaHidden(el)) return;
       const style = window.getComputedStyle(el);
       if (style.display === 'none' || style.visibility === 'hidden') return;
+      const text = (el.textContent || '').trim();
+      if (text.length < 2) return; // skip icon-only buttons
       const color = cssColorToHex(style.color);
       const bg = cssColorToHex(style.backgroundColor);
       if (!color || !bg) return;
       const ratio = contrastRatio(color, bg);
       if (ratio < 3.0) {
-        issues.push({ type: 'low_contrast', message: 'Text contrast ratio ' + ratio.toFixed(1) + ':1 is below 3.0 (WCAG AA requires 4.5:1 for normal text)', selector: selector(el) });
+        issues.push({ type: 'low_contrast', message: 'Text contrast ratio ' + ratio.toFixed(1) + ':1 is below 3.0 on a CTA/link', selector: selector(el) });
       }
     } catch {}
   });
 
-  // 2. Interactive elements with zero computed size or display:none
-  document.querySelectorAll('button, a[href], input, select, textarea, [role="button"]').forEach(function(el) {
+  // 2. Interactive elements with zero rendered size — skip off-screen (mobile menus etc.) and aria-hidden
+  document.querySelectorAll('button, input[type="submit"], input[type="button"]').forEach(function(el) {
     try {
+      if (isAriaHidden(el)) return;
       const rect = el.getBoundingClientRect();
       const style = window.getComputedStyle(el);
       if (style.display === 'none') {
-        issues.push({ type: 'zero_size_interactive', message: 'Interactive element is display:none (not visible to users)', selector: selector(el) });
+        // Only flag a <button> that's display:none AND has visible text — likely a hidden submit button
+        const text = (el.textContent || '').trim();
+        if (text.length > 1 && el.tagName === 'BUTTON') {
+          issues.push({ type: 'zero_size_interactive', message: 'Button is display:none: "' + text.slice(0,40) + '"', selector: selector(el) });
+        }
         return;
       }
+      if (style.visibility === 'hidden' || style.opacity === '0') return; // skip intentionally hidden
       if (rect.width < 1 && rect.height < 1) {
-        issues.push({ type: 'zero_size_interactive', message: 'Interactive element has zero computed size (' + rect.width.toFixed(0) + 'x' + rect.height.toFixed(0) + 'px)', selector: selector(el) });
+        issues.push({ type: 'zero_size_interactive', message: 'Button/submit has zero rendered size (' + rect.width.toFixed(0) + 'x' + rect.height.toFixed(0) + 'px)', selector: selector(el) });
       }
     } catch {}
   });
@@ -185,11 +230,12 @@ const DOM_AUDIT_SCRIPT = /* javascript */ `
   // 3. Forms with no visible submit button
   document.querySelectorAll('form').forEach(function(form) {
     try {
-      const submits = form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"], [role="button"]');
+      const submits = form.querySelectorAll('button[type="submit"], button:not([type]), input[type="submit"]');
       const visible = Array.from(submits).some(function(el) {
+        if (isAriaHidden(el)) return false;
         const s = window.getComputedStyle(el);
         const r = el.getBoundingClientRect();
-        return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
+        return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 1 && r.height > 1;
       });
       if (!visible) {
         issues.push({ type: 'form_no_submit', message: 'Form has no visible submit button', selector: selector(form) });
@@ -197,15 +243,23 @@ const DOM_AUDIT_SCRIPT = /* javascript */ `
     } catch {}
   });
 
-  // 4. Content touching the viewport edge (left/right padding < 8px on body/main containers)
-  var containers = [document.body, document.querySelector('main'), document.querySelector('[class*="container"]'), document.querySelector('[class*="wrapper"]')].filter(Boolean);
-  containers.forEach(function(el) {
+  // 4. Content touching viewport edge — check section/main/article/hero containers, NOT body
+  //    This catches generated apps that forget padding on sections, not intentional edge-to-edge heroes.
+  var sectionContainers = Array.from(document.querySelectorAll('section, main, article, [class*="hero"], [class*="section"], [class*="container"], [class*="wrapper"]'));
+  var seen = new Set();
+  sectionContainers.forEach(function(el) {
     try {
+      if (seen.has(el)) return;
+      seen.add(el);
       const style = window.getComputedStyle(el);
+      if (style.display === 'none') return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 100) return; // skip tiny containers
       const pl = parseFloat(style.paddingLeft);
       const pr = parseFloat(style.paddingRight);
-      if ((pl < 8 || pr < 8) && el.scrollWidth >= vw) {
-        issues.push({ type: 'content_touching_edge', message: 'Container has very small horizontal padding (left:' + pl.toFixed(0) + 'px right:' + pr.toFixed(0) + 'px) — content may touch viewport edge on mobile', selector: selector(el) });
+      // Only flag if the container itself has content flush with both edges (< 4px each side)
+      if (pl < 4 && pr < 4 && rect.width >= vw * 0.9) {
+        issues.push({ type: 'content_touching_edge', message: 'Full-width section has no horizontal padding (left:' + pl.toFixed(0) + 'px right:' + pr.toFixed(0) + 'px) — text may touch the viewport edge on narrow screens', selector: selector(el) });
       }
     } catch {}
   });
@@ -213,22 +267,22 @@ const DOM_AUDIT_SCRIPT = /* javascript */ `
   // 5. Horizontal overflow
   try {
     const bodyWidth = document.body.scrollWidth;
-    if (bodyWidth > vw + 4) {
-      // Find the widest offending child
-      var worst = null; var worstW = 0;
+    if (bodyWidth > vw + 8) {
+      var worst = null; var worstR = 0;
       document.querySelectorAll('*').forEach(function(el) {
         try {
           const r = el.getBoundingClientRect();
-          if (r.right > vw + 4 && r.width > worstW) { worst = el; worstW = r.width; }
+          if (r.right > vw + 8 && r.right > worstR) { worst = el; worstR = r.right; }
         } catch {}
       });
       issues.push({ type: 'horizontal_overflow', message: 'Page scrolls horizontally (body.scrollWidth=' + bodyWidth + 'px > viewport=' + vw + 'px)' + (worst ? ' — widest offender: ' + selector(worst) : ''), selector: worst ? selector(worst) : undefined });
     }
   } catch {}
 
-  // 6. Images / icons that failed to load
+  // 6. Images that failed to load (aria-hidden images are decorative, skip them)
   document.querySelectorAll('img').forEach(function(img) {
     try {
+      if (isAriaHidden(img)) return;
       if (!img.complete || img.naturalWidth === 0) {
         issues.push({ type: 'broken_image', message: 'Image failed to load: src="' + (img.src || '').slice(0, 120) + '"', selector: selector(img) });
       }
