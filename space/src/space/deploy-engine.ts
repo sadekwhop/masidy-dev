@@ -1,7 +1,7 @@
 import type { Git } from "@cloudflare/shell/git"
 import type { FileSystem } from "@cloudflare/shell"
 import { createApp, createWorker, type AssetConfig, type Modules } from "@cloudflare/worker-bundler"
-import { parseWranglerConfig, WranglerConfigError } from "./wrangler-config"
+import { parseWranglerConfig, WranglerConfigError, type ParsedWranglerConfig } from "./wrangler-config"
 import { globInfos } from "./fileinfo"
 
 // ─── Deploy Engine ──────────────────────────────────────────────────────────
@@ -178,6 +178,91 @@ export function saveDeploymentBundle(
   )
 }
 
+// ─── Project contract validation (pre-deploy gate) ─────────────────────────
+
+function fileExistsUnder(files: Record<string, string>, dir: string): boolean {
+	const d = dir.replace(/^\.?\//, "").replace(/\/$/, "")
+	return Object.keys(files).some((p) => p === d || p.startsWith(`${d}/`))
+}
+
+/**
+ * Resolve the main module source: the configured `main`, else the bundler's
+ * auto-detect order. Returns the first one present in the branch files.
+ */
+function resolveMainModule(
+	files: Record<string, string>,
+	wranglerCfg: ParsedWranglerConfig,
+): { path: string; content: string } | null {
+	const candidates = [
+		wranglerCfg.main,
+		"src/index.ts",
+		"src/index.js",
+		"index.ts",
+		"index.js",
+	].filter((p): p is string => typeof p === "string" && p.length > 0)
+	for (const c of candidates) {
+		const content = files[c]
+		if (typeof content === "string") return { path: c, content }
+	}
+	return null
+}
+
+/**
+ * Pre-deploy validation of the SpaceDO app contract (item 2). Throws a clear
+ * error (reported back to the agent as a deploy failure) before publishing
+ * when the project is missing the required files or mis-configures assets:
+ *  - a wrangler.json/.jsonc/.toml config file must exist
+ *  - the main module must export `class App extends DurableObject`
+ *  - when static files exist under public/ (or an assets dir is configured),
+ *    `assets.directory` must be set AND contain index.html
+ */
+function validateProjectContract(
+	files: Record<string, string>,
+	wranglerCfg: ParsedWranglerConfig,
+): void {
+	const hasWranglerConfig =
+		files["wrangler.json"] || files["wrangler.jsonc"] || files["wrangler.toml"]
+	if (!hasWranglerConfig) {
+		throw new Error(
+			"Missing wrangler.json: create a wrangler.json with `main` and `assets.directory` (see the cloudflare-bundler-apps skill skeleton).",
+		)
+	}
+
+	const main = resolveMainModule(files, wranglerCfg)
+	if (!main) {
+		throw new Error(
+			`Main module not found (${wranglerCfg.main ?? "src/index.ts"}). wrangler.json "main" must point to a module exporting \`class App extends DurableObject\`.`,
+		)
+	}
+	if (!/export\s+class\s+App\b/.test(main.content)) {
+		throw new Error(
+			`Main module "${main.path}" must export a named class \`App\`. Do not use \`export default { fetch }\` as the server entry.`,
+		)
+	}
+	if (!/extends\s+DurableObject/.test(main.content)) {
+		throw new Error(
+			`Main module "${main.path}" exports \`App\` but it does not extend \`DurableObject\` from \`cloudflare:workers\`.`,
+		)
+	}
+
+	const publicHasFiles = fileExistsUnder(files, "public")
+	const assetsDir = wranglerCfg.assets?.directory
+	if (publicHasFiles || assetsDir) {
+		if (!assetsDir) {
+			throw new Error(
+				"Static files exist in public/ but wrangler.json has no `assets.directory`. Set `\"assets\": { \"directory\": \"./public\" }` so they are served.",
+			)
+		}
+		const dir = assetsDir.replace(/^\.?\//, "").replace(/\/$/, "")
+		const hasIndex = Object.keys(files).some((p) => p === `${dir}/index.html`)
+		if (!hasIndex) {
+			throw new Error(
+				`Assets directory "${dir}" is missing index.html. The preview needs an entry HTML document.`,
+			)
+		}
+	}
+}
+
 export async function buildBranchDeployment(
   ctx: DeployContext,
   branch: string
@@ -203,6 +288,12 @@ export async function buildBranchDeployment(
     )
   }
 
+  // Pre-deploy contract validation (item 2): missing wrangler.json / main App
+  // export / mis-configured assets fail here with a clear error BEFORE the
+  // build runs, so the deploy result reports the contract violation instead of
+  // publishing a broken preview.
+  validateProjectContract(files, wranglerCfg)
+
   try {
     const assetsDir = wranglerCfg.assets?.directory?.replace(/^\.?\//, "").replace(/\/$/, "")
     const collectedAssets = assetsDir
@@ -222,6 +313,16 @@ export async function buildBranchDeployment(
           }),
         }
       : undefined
+
+    // Backstop for the exact failure mode called out in the spec: a deploy
+    // result with no assets while files exist under public/. The pre-deploy
+    // validation above normally catches this first; this guards a misconfigured
+    // assets dir that still builds with zero collected assets.
+    if (Object.keys(collectedAssets).length === 0 && fileExistsUnder(files, "public")) {
+      throw new Error(
+        'Deploy produced no static assets (has_assets=false) but files exist in public/. Set wrangler.json `assets.directory` to "./public".',
+      )
+    }
 
     if (Object.keys(collectedAssets).length) {
       const result = await createApp({

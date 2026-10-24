@@ -226,12 +226,12 @@ export class DORateLimitStore extends DurableObject<Env> {
 
     async resetLimit(key?: string): Promise<void> {
         await this.ensureInitialized();
-        
+
         if (key) {
             // Reset specific key buckets
             const keysToDelete = Array.from(this.state.buckets.keys())
                 .filter(bucketKey => bucketKey.startsWith(`${key}:`));
-            
+
             for (const bucketKey of keysToDelete) {
                 this.state.buckets.delete(bucketKey);
             }
@@ -239,6 +239,33 @@ export class DORateLimitStore extends DurableObject<Env> {
             // Reset all buckets
             this.state.buckets.clear();
         }
+
+        await this.persistState();
+    }
+
+    /**
+     * Refund `amount` credits from the current bucket for `key`. Unlike
+     * {@link increment}, this bypasses the limit check so a refund always
+     * applies even when the user sits exactly at the limit (e.g. the turn under
+     * refund pushed them there). The current bucket's count may go negative —
+     * that correctly reduces the window's total count so callers see their
+     * usage drop by `amount`. Used for zero-waste billing: unverified build
+     * turns refund the credits they consumed.
+     */
+    async refund(key: string, config: RateLimitConfig, amount: number): Promise<void> {
+        await this.ensureInitialized();
+        if (amount <= 0) return;
+
+        const now = Date.now();
+        const bucketSize = (config.bucketSize || 10) * 1000;
+        const currentBucket = Math.floor(now / bucketSize) * bucketSize;
+        const bucketKey = `${key}:${currentBucket}`;
+
+        const existing = this.state.buckets.get(bucketKey);
+        this.state.buckets.set(bucketKey, {
+            count: (existing?.count || 0) - amount,
+            timestamp: now,
+        });
 
         await this.persistState();
     }

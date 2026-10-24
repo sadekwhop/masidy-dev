@@ -5,6 +5,69 @@ description: Author Cloudflare Worker Bundler-compatible apps that build and pre
 
 This skill teaches how to build apps that deploy cleanly through the space deploy pipeline. Every project committed to a space is built by `@cloudflare/worker-bundler` (`createApp` when there are static assets, `createWorker` when there are none) and served on a Dynamic Worker via `WorkerLoader`. Get the conventions right and the preview "just works". Get them wrong and you get a blank page, a 500, or a `Build failed` error.
 
+## Copy-paste skeleton (required for every project)
+
+Every project MUST start from these three exact files. Copy them verbatim, then extend. The platform auto-binds the `App` class exported from `main` — do NOT add a `durable_objects` binding to `wrangler.json`.
+
+`wrangler.json`:
+
+```json
+{
+  "main": "src/index.ts",
+  "compatibility_date": "2025-04-01",
+  "assets": {
+    "directory": "./public",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "single-page-application"
+  }
+}
+```
+
+`src/index.ts`:
+
+```ts
+import { DurableObject } from "cloudflare:workers";
+
+export class App extends DurableObject {
+  constructor(ctx: DurableObjectState, env: unknown) {
+    super(ctx, env);
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    const url = new URL(request.url);
+    if (url.pathname.startsWith("/api/")) {
+      return Response.json({ ok: true });
+    }
+    return new Response("Not found", { status: 404 });
+  }
+}
+```
+
+`public/index.html`:
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>App</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
+```
+
+### NOT allowed
+
+- **`wrangler.toml`** — use `wrangler.json` only. The TOML `[assets]` table and a separate assets manifest file are also NOT allowed; configure assets as the `assets` object inside `wrangler.json`.
+- **Deno APIs** (`Deno.*`) — the runtime is Cloudflare Workers, not Deno. Use Web standards and `cloudflare:workers` imports.
+- **Embedding HTML in JS/TS strings** — do not build pages by concatenating HTML inside `<script>` or server strings. Put real `.html` files in `public/` and serve them as assets.
+- **`export default { fetch }` / `export default` worker entry** — the server entry MUST be `export class App extends DurableObject` from `main`. A default Worker export is ignored by the preview loader.
+- **`durable_objects.bindings` in `wrangler.json`** — the platform runs your app as one Durable Object; declaring a binding fails the deploy.
+
 ## How the pipeline works
 
 When `deploy_space(branch)` is called, the space DO:

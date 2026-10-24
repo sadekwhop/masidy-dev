@@ -26,6 +26,14 @@ import { RateLimitService } from '../../services/rate-limit/rateLimits';
 import { hasCloudflareConfigured } from '../../services/rate-limit/usageChecker';
 import type { RateLimitSettings } from '../../services/rate-limit/config';
 import { THINK_MODEL_CONFIG } from './model-config';
+import {
+	computeTurnCreditAdjustment,
+	isTurnVerified,
+	turnNotWorkingMessage,
+	MAX_CONSECUTIVE_BUILD_FAILURES,
+	type BuildRetryState,
+	type TurnVerification,
+} from './turn-verification';
 import { createCloudflareStackTools } from './cloudflare-stack-tools';
 import { createSpecialistAgentTool } from './specialist-agent-tool';
 
@@ -75,6 +83,22 @@ export class ThinkAgent extends Think<Env> {
 	override workspaceBash = false;
 
 	private turnUsage: { config: RateLimitSettings; hasCloudflareConfigured: boolean } | null = null;
+
+	/**
+	 * Per-turn build verification, shared by `deploy_space` and
+	 * `get_browser_console_logs` and read by the end-of-turn gate
+	 * ({@link finalizeTurn}). Reset in {@link beforeTurn}.
+	 */
+	private turnVerification: TurnVerification = {
+		deployed: false,
+		consoleChecked: false,
+		consoleClean: false,
+		previewOk: false,
+	};
+	/** Shared deploy + preview/console failure counter (item 4). Reset per turn. */
+	private buildRetry: BuildRetryState = { consecutiveFailures: 0 };
+	/** Credits consumed by this turn's LLM steps; refunded if the turn is unverified. */
+	private turnCreditsConsumed = 0;
 
 	private requireConfig(): ThinkAgentConfig {
 		const cfg = this.getConfig<ThinkAgentConfig>();
@@ -142,6 +166,15 @@ export class ThinkAgent extends Think<Env> {
 		const messages = selectThinkContextMessages(ctx.messages);
 		const config = this.getConfig<ThinkAgentConfig>();
 		this.turnUsage = null;
+		// Reset per-turn build verification + zero-waste credit accounting.
+		this.turnVerification.deployed = false;
+		this.turnVerification.consoleChecked = false;
+		this.turnVerification.consoleClean = false;
+		this.turnVerification.previewOk = false;
+		this.turnVerification.deployCommit = undefined;
+		this.turnVerification.lastError = undefined;
+		this.buildRetry.consecutiveFailures = 0;
+		this.turnCreditsConsumed = 0;
 		if (config) {
 			try {
 				const userConfig = await getUserConfigurableSettings(this.env, config.userId);
@@ -188,6 +221,8 @@ export class ThinkAgent extends Think<Env> {
 			deploy_space: createDeploySpaceTool({
 				getStub: () => this.getSpaceStub(),
 				getPreviewUrl: () => previewUrl,
+				verification: this.turnVerification,
+				retryState: this.buildRetry,
 			}),
 			// Set the project's short display title (host observes the output).
 			set_title: createSetTitleTool(),
@@ -203,6 +238,8 @@ export class ThinkAgent extends Think<Env> {
 			get_browser_console_logs: createBrowserConsoleLogsTool({
 				env: this.env,
 				defaultUrl: previewUrl,
+				verification: this.turnVerification,
+				retryState: this.buildRetry,
 			}),
 			...createCloudflareStackTools(),
 		} as unknown as ToolSet;
@@ -231,6 +268,15 @@ export class ThinkAgent extends Think<Env> {
 				false,
 				this.turnUsage.hasCloudflareConfigured,
 				{ creditCost: THINK_MODEL_CONFIG.creditCost, throwOnExceeded: false },
+			);
+			// Track what this turn actually consumed so an unverified build turn
+			// can refund it (zero-waste billing). Mirrors the enforcer's decision.
+			this.turnCreditsConsumed += RateLimitService.computeLLMChargeCost(
+				this.turnUsage.config,
+				'Think',
+				false,
+				this.turnUsage.hasCloudflareConfigured,
+				{ creditCost: THINK_MODEL_CONFIG.creditCost },
 			);
 		}
 		if (ctx.stepNumber >= this.maxSteps - 1) {
@@ -266,5 +312,45 @@ export class ThinkAgent extends Think<Env> {
 			// case the initial freezeSystemPrompt() during chat() renders with
 			// this config anyway.
 		}
+	}
+
+	/**
+	 * End-of-turn gate, enforced in code (not just the prompt): a build turn
+	 * that deployed but was NOT verified — clean `get_browser_console_logs`
+	 * after the last deploy AND the preview returning HTTP 200 — is treated as
+	 * NOT working. Its credits are refunded (zero-waste billing) and a plain
+	 * failure message is returned for the host to broadcast instead of the
+	 * model's "done" text. Non-build turns and verified turns return verified.
+	 */
+	async finalizeTurn(): Promise<{
+		verified: boolean;
+		message?: string;
+		refunded?: number;
+	}> {
+		const v = this.turnVerification;
+		if (!v.deployed || isTurnVerified(v)) {
+			return { verified: true };
+		}
+		const message = turnNotWorkingMessage(v) ?? 'The app is NOT working.';
+		const refund = computeTurnCreditAdjustment(v, this.turnCreditsConsumed).refund;
+		const config = this.getConfig<ThinkAgentConfig>();
+		if (refund > 0 && config && this.turnUsage) {
+			try {
+				await RateLimitService.refundLLMCredits(
+					this.env,
+					this.turnUsage.config,
+					config.userId,
+					refund,
+				);
+			} catch (e) {
+				console.error('Failed to refund credits for unverified turn', e);
+			}
+		}
+		return { verified: false, message, refunded: refund };
+	}
+
+	/** Read-only access for the deploy/preview tools to the shared retry cap. */
+	get maxConsecutiveBuildFailures(): number {
+		return MAX_CONSECUTIVE_BUILD_FAILURES;
 	}
 }

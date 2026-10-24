@@ -6,11 +6,19 @@
  * files; pair it with `get_browser_console_logs` to verify the preview.
  *
  * Runs inside the ThinkAgent DO and talks to the companion SpaceDO directly via
- * RPC (no round-trip through the busy parent agent).
+ * RPC (no round-trip through the busy parent agent). Shares a per-turn
+ * {@link TurnVerification} record with `get_browser_console_logs` and a
+ * {@link BuildRetryState} counter so deploy AND preview/console failures count
+ * toward the same retry cap.
  */
 import { tool, type Tool } from 'ai';
 import { z } from 'zod';
 import { withDurableObjectResetRetry, type SpaceWorkspaceStub } from './space-workspace-ops';
+import {
+	MAX_CONSECUTIVE_BUILD_FAILURES,
+	type BuildRetryState,
+	type TurnVerification,
+} from './turn-verification';
 
 const DESCRIPTION = [
 	'Commit the current working tree and deploy a branch so its preview rebuilds and serves the latest code.',
@@ -20,13 +28,24 @@ const DESCRIPTION = [
 	"Defaults to the 'main' branch.",
 ].join('\n');
 
-export function createDeploySpaceTool(opts: {
+export interface DeploySpaceToolOptions {
 	getStub: () => SpaceWorkspaceStub;
 	getPreviewUrl?: () => string | undefined;
-}): Tool {
+	/** Per-turn verification record shared with `get_browser_console_logs`. */
+	verification?: TurnVerification;
+	/** Shared deploy + preview/console failure counter (item 4). */
+	retryState?: BuildRetryState;
+}
+
+export function createDeploySpaceTool(opts: DeploySpaceToolOptions): Tool {
 	const { getStub, getPreviewUrl } = opts;
-	let consecutiveDeployFailures = 0;
-	const MAX_CONSECUTIVE_DEPLOY_FAILURES = 3;
+	const verification = opts.verification;
+	const retryState = opts.retryState ?? { consecutiveFailures: 0 };
+
+	const recordFailure = (message: string): void => {
+		if (verification) verification.lastError = message;
+		retryState.consecutiveFailures += 1;
+	};
 
 	return tool({
 		description: DESCRIPTION,
@@ -37,9 +56,9 @@ export function createDeploySpaceTool(opts: {
 				.describe("Git branch to deploy. Defaults to 'main'."),
 		}),
 		execute: async (args: { branch?: string }) => {
-			if (consecutiveDeployFailures >= MAX_CONSECUTIVE_DEPLOY_FAILURES) {
+			if (retryState.consecutiveFailures >= MAX_CONSECUTIVE_BUILD_FAILURES) {
 				return JSON.stringify({
-					error: `RETRY_CAP_REACHED: ${MAX_CONSECUTIVE_DEPLOY_FAILURES} consecutive deployments failed. Build paused to protect your credits. Please review error logs before attempting to deploy again.`,
+					error: `RETRY_CAP_REACHED: ${MAX_CONSECUTIVE_BUILD_FAILURES} consecutive build failures (failed deploys or unverified previews). Build paused to protect your credits. Review the latest deploy/preview error before deploying again.`,
 				});
 			}
 
@@ -52,27 +71,55 @@ export function createDeploySpaceTool(opts: {
 				// No changes to commit (clean tree) — proceed to deploy the existing HEAD.
 			}
 			try {
-				const result = await withDurableObjectResetRetry(getStub, (stub) => stub.deploy(branch));
-				const output: Record<string, unknown> = { branch, ...(result as Record<string, unknown>) };
+				const result = (await withDurableObjectResetRetry(getStub, (stub) =>
+					stub.deploy(branch),
+				)) as Record<string, unknown>;
+				const output: Record<string, unknown> = { branch, ...result };
 				const signedUrl = getPreviewUrl?.();
 				if (signedUrl) {
 					output.preview_url = signedUrl;
 				}
-				consecutiveDeployFailures = 0; // reset on successful deploy
+
+				// SpaceDO reports build/config/contract-validation failures in the
+				// payload (with `error`) rather than throwing — count those as
+				// build failures too, not just thrown RPC errors.
+				if (typeof result?.error === 'string') {
+					const details = typeof result.details === 'string' ? result.details : '';
+					const message = details ? `${result.error}: ${details}` : result.error;
+					recordFailure(message);
+					if (retryState.consecutiveFailures >= MAX_CONSECUTIVE_BUILD_FAILURES) {
+						return JSON.stringify({
+							branch,
+							error: `Deploy failed: ${message}. RETRY_CAP_REACHED: ${MAX_CONSECUTIVE_BUILD_FAILURES} consecutive build failures reached. Generation paused to avoid wasting credits.`,
+						});
+					}
+					return JSON.stringify({ branch, error: `Deploy failed: ${message}` });
+				}
+
+				// Successful deploy: a new build invalidates any prior console
+				// check, so the turn is not verified again until the browser is
+				// re-checked. Reset the failure counter.
+				if (verification) {
+					verification.deployed = true;
+					verification.deployCommit =
+						typeof result?.commit_hash === 'string' ? result.commit_hash : undefined;
+					verification.consoleChecked = false;
+					verification.consoleClean = false;
+					verification.previewOk = false;
+					verification.lastError = undefined;
+				}
+				retryState.consecutiveFailures = 0;
 				return JSON.stringify(output, null, 2);
 			} catch (e) {
-				consecutiveDeployFailures++;
 				const errMsg = e instanceof Error ? e.message : String(e);
-				if (consecutiveDeployFailures >= MAX_CONSECUTIVE_DEPLOY_FAILURES) {
+				recordFailure(errMsg);
+				if (retryState.consecutiveFailures >= MAX_CONSECUTIVE_BUILD_FAILURES) {
 					return JSON.stringify({
 						branch,
-						error: `Deploy failed: ${errMsg}. RETRY_CAP_REACHED: ${MAX_CONSECUTIVE_DEPLOY_FAILURES} consecutive deployment failures reached. Generation paused to avoid wasting credits.`,
+						error: `Deploy failed: ${errMsg}. RETRY_CAP_REACHED: ${MAX_CONSECUTIVE_BUILD_FAILURES} consecutive build failures reached. Generation paused to avoid wasting credits.`,
 					});
 				}
-				return JSON.stringify({
-					branch,
-					error: `Deploy failed: ${errMsg}`,
-				});
+				return JSON.stringify({ branch, error: `Deploy failed: ${errMsg}` });
 			}
 		},
 	});

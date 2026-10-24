@@ -47,6 +47,7 @@ type ThinkAgentStub = {
 	cancelAllChats: () => void;
 	getMessages: () => Promise<UIMessage[]>;
 	clearMessages: () => Promise<void>;
+	finalizeTurn: () => Promise<{ verified: boolean; message?: string; refunded?: number }>;
 };
 
 /** SpaceDO RPC surface this behavior drives (see `space/src/space/durable-object.ts`). */
@@ -534,8 +535,20 @@ export class ThinkCodingBehavior
 		);
 
 		const stub = await this.getThinkStub();
+		let finalize: { verified: boolean; message?: string; refunded?: number } | null = null;
 		try {
 			await stub.chat(text, forwarder);
+			// End-of-turn gate (enforced in code, not just the prompt): if the
+			// build turn deployed but the preview was NOT verified (clean browser
+			// console after the last deploy AND the preview returning HTTP 200),
+			// the ThinkAgent returns a plain "not working" message and refunds
+			// the turn's credits. Override the model's final text with it so the
+			// user sees the real status instead of a false "done".
+			try {
+				finalize = await stub.finalizeTurn();
+			} catch (e) {
+				this.logger.warn('ThinkAgent.finalizeTurn failed', e);
+			}
 		} finally {
 			this.broadcast(WebSocketMessageResponses.USAGE_UPDATED, {
 				message: 'Usage data updated',
@@ -546,8 +559,15 @@ export class ThinkCodingBehavior
 				if (typeof dispose === 'function') dispose.call(forwarder);
 			}
 			// Think's non-streaming finalize: the FE replaces content with this
-			// terminal payload, so only send it when we actually accumulated text.
-			if (accumulated.text && !isLeakedToolCallText(accumulated.text)) {
+			// terminal payload. If the end-of-turn gate failed verification, show
+			// the plain "not working" message instead of the model's summary.
+			if (finalize && !finalize.verified && finalize.message) {
+				this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
+					message: finalize.message,
+					conversationId,
+					isStreaming: false,
+				});
+			} else if (accumulated.text && !isLeakedToolCallText(accumulated.text)) {
 				this.broadcast(WebSocketMessageResponses.CONVERSATION_RESPONSE, {
 					message: accumulated.text,
 					conversationId,

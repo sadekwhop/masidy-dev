@@ -7,11 +7,21 @@
  * This runs inside the ThinkAgent DO and calls the shared capture service directly via
  * `getBrowserCaptureClient` — the parent agent is busy awaiting the Think
  * stream, so re-entrant RPC into it would deadlock.
+ *
+ * Shares a per-turn {@link TurnVerification} record with `deploy_space`: a clean
+ * console check after a deploy marks the turn's preview as verified (when the
+ * preview URL also returns HTTP 200), and repeated preview/console failures
+ * count toward the shared build retry cap.
  */
 import { tool, type Tool } from 'ai';
 import { z } from 'zod';
 import { getBrowserCaptureClient } from '../../services/browser-capture/factory';
 import { createLogger } from '../../logger';
+import {
+	MAX_CONSECUTIVE_BUILD_FAILURES,
+	type BuildRetryState,
+	type TurnVerification,
+} from './turn-verification';
 
 const DESCRIPTION = [
 	'Open the current preview app in a real headless browser and return its console output, uncaught page errors, and failed network requests captured during page load.',
@@ -20,11 +30,41 @@ const DESCRIPTION = [
 	'',
 	"DEFAULTS to the current preview URL. Pass 'url' to inspect a specific route. Pass 'wait_seconds' (default 5, max 25) to allow late-firing logs/network calls after page load. Optional 'interact_script' is a JS string evaluated in the page after load (e.g. 'document.querySelector(\"button\").click()') to trigger interactions before logs are collected.",
 	'',
-	"OUTPUT is JSON: { url, captured_at, logs:[{level,text,location}], page_errors:[{message,stack}], request_failures:[{url,failure,status}], truncated, totals, warning? }. If 'warning' is set in dev, the browser sidecar wasn't reachable — instruct the user to run 'npm run dev:browser' and retry. Each category is independently capped at max_lines (default 100, -1 = no limit).",
+	"OUTPUT is JSON: { url, captured_at, logs:[{level,text,location}], page_errors:[{message,stack}], request_failures:[{url,failure,status}], truncated, totals, warning?, retry_cap_reached? }. If 'warning' is set in dev, the browser sidecar wasn't reachable — instruct the user to run 'npm run dev:browser' and retry. Each category is independently capped at max_lines (default 100, -1 = no limit).",
 ].join('\n');
 
-export function createBrowserConsoleLogsTool(opts: { env: Env; defaultUrl?: string }): Tool {
+export interface BrowserConsoleLogsToolOptions {
+	env: Env;
+	defaultUrl?: string;
+	verification?: TurnVerification;
+	retryState?: BuildRetryState;
+}
+
+/** Fetch the preview URL and confirm it returned HTTP 200 (not 2xx — 200). */
+async function checkPreviewHttpOk(
+	url: string,
+): Promise<{ ok: boolean; status?: number; error?: string }> {
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), 10_000);
+	try {
+		const res = await fetch(url, { redirect: 'follow', signal: controller.signal });
+		return res.status === 200
+			? { ok: true, status: 200 }
+			: { ok: false, status: res.status, error: `preview returned HTTP ${res.status}` };
+	} catch (e) {
+		return {
+			ok: false,
+			error: `preview HTTP check failed: ${e instanceof Error ? e.message : String(e)}`,
+		};
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
+export function createBrowserConsoleLogsTool(opts: BrowserConsoleLogsToolOptions): Tool {
 	const { env, defaultUrl } = opts;
+	const verification = opts.verification;
+	const retryState = opts.retryState ?? { consecutiveFailures: 0 };
 	const logger = createLogger('ThinkBrowserLogs');
 	return tool({
 		description: DESCRIPTION,
@@ -72,9 +112,10 @@ export function createBrowserConsoleLogsTool(opts: { env: Env; defaultUrl?: stri
 					interactScript: args.interact_script,
 				});
 			} catch (e) {
-				return JSON.stringify({
-					error: `Browser console capture failed: ${e instanceof Error ? e.message : String(e)}`,
-				});
+				const message = `Browser console capture failed: ${e instanceof Error ? e.message : String(e)}`;
+				if (verification) verification.lastError = message;
+				if (retryState) retryState.consecutiveFailures += 1;
+				return JSON.stringify({ error: message });
 			}
 
 			const cap = args.max_lines ?? 100;
@@ -84,6 +125,38 @@ export function createBrowserConsoleLogsTool(opts: { env: Env; defaultUrl?: stri
 				(result.logs.length > cap ||
 					result.pageErrors.length > cap ||
 					result.requestFailures.length > cap);
+
+			// ── Verification (item 3) ──────────────────────────────────────
+			// Clean = zero uncaught page errors and zero failed network requests.
+			const consoleClean =
+				result.pageErrors.length === 0 && result.requestFailures.length === 0;
+			const http = await checkPreviewHttpOk(targetUrl);
+			if (verification) {
+				verification.consoleChecked = true;
+				verification.consoleClean = consoleClean;
+				verification.previewOk = http.ok;
+				if (!consoleClean) {
+					verification.lastError =
+						result.pageErrors[0]?.message ??
+						result.requestFailures[0]?.failure ??
+						'browser console reported errors';
+				}
+				if (!http.ok) {
+					verification.lastError = http.error ?? verification.lastError;
+				}
+			}
+
+			// ── Retry cap (item 4): count preview/console failures ─────────
+			let retryCapReached = false;
+			if (verification?.deployed) {
+				const verified = consoleClean && http.ok;
+				if (verified) {
+					if (retryState) retryState.consecutiveFailures = 0;
+				} else if (retryState) {
+					retryState.consecutiveFailures += 1;
+					retryCapReached = retryState.consecutiveFailures >= MAX_CONSECUTIVE_BUILD_FAILURES;
+				}
+			}
 
 			return JSON.stringify(
 				{
@@ -98,7 +171,14 @@ export function createBrowserConsoleLogsTool(opts: { env: Env; defaultUrl?: stri
 						page_errors: result.pageErrors.length,
 						request_failures: result.requestFailures.length,
 					},
+					preview_http_ok: http.ok,
+					...(http.status ? { preview_http_status: http.status } : {}),
 					...(result.warning ? { warning: result.warning } : {}),
+					...(retryCapReached
+						? {
+								retry_cap_reached: `RETRY_CAP_REACHED: ${MAX_CONSECUTIVE_BUILD_FAILURES} consecutive build failures. Stop deploying and report the latest preview error.`,
+							}
+						: {}),
 				},
 				null,
 				2,

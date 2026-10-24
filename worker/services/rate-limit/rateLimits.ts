@@ -466,4 +466,57 @@ export class RateLimitService {
 			this.logger.error('Failed to enforce LLM calls rate limit', error);
 		}
 	}
+
+	/**
+	 * Pure mirror of the charge decision in {@link enforceLLMCallsRateLimit}:
+	 * returns the credit cost that WOULD be deducted for one call, or 0 when
+	 * metering is disabled or excluded (BYOK / Cloudflare-connected). Used by
+	 * the ThinkAgent to accumulate the credits a turn consumed without changing
+	 * the void return contract of the enforcer.
+	 */
+	static computeLLMChargeCost(
+		config: RateLimitSettings,
+		model: AIModels | string,
+		isUsingBYOK: boolean = false,
+		hasCloudflareConfigured: boolean = false,
+		options: LLMCallRateLimitOptions = {},
+	): number {
+		const llmConfig = config[RateLimitType.LLM_CALLS];
+		if (!llmConfig.enabled) return 0;
+		if (isUsingBYOK && llmConfig.excludeBYOKUsers) return 0;
+		if (hasCloudflareConfigured && llmConfig.excludeCloudflareConnected) return 0;
+		const cost = options.creditCost ?? AI_MODEL_CONFIG[model as AIModels]?.creditCost;
+		return cost && cost > 0 ? cost : 0;
+	}
+
+	/**
+	 * Zero-waste billing: refund `amount` LLM credits the turn consumed when the
+	 * preview was not verified working. Calls the DORateLimitStore `refund`
+	 * directly (bypasses the limit check) so the refund always applies even at
+	 * the limit. Fail-open — a refund error is logged, never thrown.
+	 */
+	static async refundLLMCredits(
+		env: Env,
+		config: RateLimitSettings,
+		userId: string,
+		amount: number,
+	): Promise<void> {
+		if (amount <= 0) return;
+		const llmConfig = config[RateLimitType.LLM_CALLS];
+		if (!llmConfig.enabled) return;
+
+		const key = this.buildRateLimitKey(RateLimitType.LLM_CALLS, `user:${userId}`);
+		try {
+			const stub = env.DORateLimitStore.getByName(key);
+			await stub.refund(key, {
+				limit: llmConfig.limit,
+				period: llmConfig.period,
+				bucketSize: llmConfig.bucketSize,
+				calendarDaily: llmConfig.calendarDaily,
+				dailyLimit: llmConfig.dailyLimit,
+			}, amount);
+		} catch (error) {
+			this.logger.error('Failed to refund LLM credits for unverified turn', error);
+		}
+	}
 }
