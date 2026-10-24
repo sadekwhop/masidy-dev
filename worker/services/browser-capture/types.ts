@@ -98,4 +98,38 @@ export interface CapturePage {
 
 export interface BrowserCaptureClient {
 	captureConsoleLogs(payload: CapturePayload): Promise<BrowserConsoleCaptureResult>;
+	auditDom(payload: DomAuditPayload): Promise<DomAuditResult>;
+}
+
+// ── DOM audit types ──────────────────────────────────────────────────────────
+
+export interface DomAuditPayload {
+	url: string;
+	/** Seconds to wait for the page to settle before auditing. Default 3, max 15. */
+	waitSeconds?: number;
+}
+
+export interface DomAuditIssue {
+	/** Short category label. */
+	type:
+		| 'low_contrast'
+		| 'zero_size_interactive'
+		| 'form_no_submit'
+		| 'content_touching_edge'
+		| 'horizontal_overflow'
+		| 'broken_image';
+	/** Human-readable description. */
+	message: string;
+	/** CSS selector or element description, best-effort. */
+	selector?: string;
+}
+
+export interface DomAuditResult {
+	url: string;
+	audited_at: string;
+	issues: DomAuditIssue[];
+	/** True when the sidecar is unavailable in dev (not a real audit failure). */
+	warning?: string;
+	/** True when no issues were found (pass). */
+	passed: boolean;
 }

@@ -14,10 +14,11 @@ import http from 'node:http';
 import type { Browser, Page } from 'puppeteer';
 import puppeteer from 'puppeteer';
 
-import { runCapture } from '../worker/services/browser-capture/capture-core';
+import { runCapture, runDomAudit } from '../worker/services/browser-capture/capture-core';
 import type {
 	CapturePage,
 	CapturePayload,
+	DomAuditPayload,
 } from '../worker/services/browser-capture/types';
 
 const PORT = Number(process.env.PORT ?? 9223);
@@ -50,8 +51,13 @@ async function getBrowser(): Promise<Browser> {
 async function handleCapture(payload: CapturePayload) {
 	const browser = await getBrowser();
 	const page: Page = await browser.newPage();
-	// puppeteer's Page satisfies the CapturePage structural type.
 	return runCapture(page as unknown as CapturePage, payload);
+}
+
+async function handleAuditDom(payload: DomAuditPayload) {
+	const browser = await getBrowser();
+	const page: Page = await browser.newPage();
+	return runDomAudit(page as unknown as CapturePage, payload);
 }
 
 function readBody(req: http.IncomingMessage): Promise<string> {
@@ -90,6 +96,22 @@ const server = http.createServer(async (req, res) => {
 			const result = await handleCapture(payload);
 			return sendJson(res, 200, result);
 		}
+		if (req.method === 'POST' && req.url === '/audit-dom') {
+			const raw = await readBody(req);
+			let payload: DomAuditPayload;
+			try {
+				payload = JSON.parse(raw) as DomAuditPayload;
+			} catch (e) {
+				return sendJson(res, 400, {
+					error: `invalid JSON body: ${e instanceof Error ? e.message : String(e)}`,
+				});
+			}
+			if (!payload?.url) {
+				return sendJson(res, 400, { error: 'missing required field: url' });
+			}
+			const result = await handleAuditDom(payload);
+			return sendJson(res, 200, result);
+		}
 		res.statusCode = 404;
 		res.end();
 	} catch (e) {
@@ -102,7 +124,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
 	console.log(`[dev-browser-sidecar] listening on http://${HOST}:${PORT}`);
-	console.log('[dev-browser-sidecar] endpoints: GET /health, POST /capture-console-logs');
+	console.log('[dev-browser-sidecar] endpoints: GET /health, POST /capture-console-logs, POST /audit-dom');
 });
 
 async function shutdown(signal: string) {

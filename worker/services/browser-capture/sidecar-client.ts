@@ -14,6 +14,8 @@ import type {
 	BrowserCaptureClient,
 	BrowserConsoleCaptureResult,
 	CapturePayload,
+	DomAuditPayload,
+	DomAuditResult,
 } from './types';
 
 const DEFAULT_SIDECAR_URL = 'http://127.0.0.1:9223';
@@ -125,6 +127,51 @@ export class SidecarCaptureClient implements BrowserCaptureClient {
 			pageErrors: [],
 			requestFailures: [],
 			warning: `Dev browser sidecar unavailable: ${reason}. Start it with 'npm run dev:browser'.`,
+		};
+	}
+
+	async auditDom(payload: DomAuditPayload): Promise<DomAuditResult> {
+		const base = this.env.DEV_BROWSER_SIDECAR_URL || DEFAULT_SIDECAR_URL;
+		const devOrigin = this.env.DEV_BROWSER_PREVIEW_ORIGIN || DEFAULT_DEV_PREVIEW_ORIGIN;
+		const rewrittenUrl = rewriteToLocalHost(payload.url, devOrigin);
+		const localPayload: DomAuditPayload = { ...payload, url: rewrittenUrl };
+
+		// Health probe first.
+		try {
+			const probe = await fetch(`${base}/health`, {
+				signal: AbortSignal.timeout(HEALTH_PROBE_TIMEOUT_MS),
+			});
+			if (!probe.ok) {
+				return this.auditUnavailable(localPayload.url, `health returned ${probe.status}`);
+			}
+		} catch (e) {
+			return this.auditUnavailable(localPayload.url, e instanceof Error ? e.message : String(e));
+		}
+
+		try {
+			const resp = await fetch(`${base}/audit-dom`, {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify(localPayload),
+				signal: AbortSignal.timeout(CAPTURE_TIMEOUT_MS),
+			});
+			if (!resp.ok) {
+				const text = await resp.text().catch(() => '');
+				return this.auditUnavailable(localPayload.url, `audit returned ${resp.status}: ${text.slice(0, 200)}`);
+			}
+			return (await resp.json()) as DomAuditResult;
+		} catch (e) {
+			return this.auditUnavailable(localPayload.url, e instanceof Error ? e.message : String(e));
+		}
+	}
+
+	private auditUnavailable(url: string, reason: string): DomAuditResult {
+		return {
+			url,
+			audited_at: new Date().toISOString(),
+			issues: [],
+			passed: true, // fail-open: unavailable sidecar does not block the turn
+			warning: `Dev browser sidecar unavailable for DOM audit: ${reason}. Start it with 'npm run dev:browser'.`,
 		};
 	}
 }

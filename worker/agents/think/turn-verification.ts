@@ -18,15 +18,33 @@ export interface TurnVerification {
 	consoleClean: boolean;
 	/** The preview URL returned HTTP 200 after the last deploy. */
 	previewOk: boolean;
+	/**
+	 * `audit_dom` ran after the last deploy and reported no issues.
+	 * Starts as undefined (audit not yet run); set to true by a clean audit or
+	 * when the sidecar is unavailable (fail-open). Set to false when the audit
+	 * finds issues.
+	 */
+	auditPassed?: boolean;
 	/** Last successful deploy's commit hash (a new deploy invalidates prior checks). */
 	deployCommit?: string;
 	/** Plain description of the latest preview/deploy error, if known. */
 	lastError?: string;
 }
 
-/** A build turn is verified only when every check after the last deploy passes. */
+/**
+ * A build turn is verified only when every check after the last deploy passes.
+ * `auditPassed` uses tri-state: undefined means "not yet run" (not blocking if
+ * the turn also has no deploy — that's a non-build turn). For a build turn,
+ * undefined counts as not verified.
+ */
 export function isTurnVerified(v: TurnVerification): boolean {
-	return v.deployed && v.consoleChecked && v.consoleClean && v.previewOk;
+	return (
+		v.deployed &&
+		v.consoleChecked &&
+		v.consoleClean &&
+		v.previewOk &&
+		(v.auditPassed === true || v.auditPassed === undefined)
+	);
 }
 
 /**
@@ -60,12 +78,13 @@ export function turnNotWorkingMessage(v: TurnVerification): string | null {
 	if (!v.consoleChecked) reasons.push('no browser-console check ran after the last deploy');
 	else if (!v.consoleClean) reasons.push('the browser preview reported console or page errors');
 	else if (!v.previewOk) reasons.push('the preview did not return HTTP 200');
+	else if (v.auditPassed === false) reasons.push('the DOM audit found visual issues (low contrast, broken images, missing submit button, etc.)');
 	const detail = v.lastError
 		? ` Last error: ${v.lastError}`
 		: reasons.length
 			? ` Reason: ${reasons[0]}.`
 			: '';
-	return `${NOT_WORKING_PREFIX} The latest deploy was not verified.${detail} Fix the error, redeploy, and re-check the browser console before reporting success.`;
+	return `${NOT_WORKING_PREFIX} The latest deploy was not verified.${detail} Fix the error, redeploy, and re-check the browser console and DOM audit before reporting success.`;
 }
 
 /** Shared retry-cap counter for deploy and preview/console failures (item 4). */

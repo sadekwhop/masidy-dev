@@ -36,6 +36,7 @@ import {
 } from './turn-verification';
 import { createCloudflareStackTools } from './cloudflare-stack-tools';
 import { createSpecialistAgentTool } from './specialist-agent-tool';
+import { createDomAuditTool } from './dom-audit-tool';
 
 /**
  * Per-instance configuration pushed into a {@link ThinkAgent} by the host
@@ -171,6 +172,7 @@ export class ThinkAgent extends Think<Env> {
 		this.turnVerification.consoleChecked = false;
 		this.turnVerification.consoleClean = false;
 		this.turnVerification.previewOk = false;
+		this.turnVerification.auditPassed = undefined;
 		this.turnVerification.deployCommit = undefined;
 		this.turnVerification.lastError = undefined;
 		this.buildRetry.consecutiveFailures = 0;
@@ -240,6 +242,12 @@ export class ThinkAgent extends Think<Env> {
 				defaultUrl: previewUrl,
 				verification: this.turnVerification,
 				retryState: this.buildRetry,
+			}),
+			// Cheap DOM-only visual audit (no screenshot/vision tokens).
+			audit_dom: createDomAuditTool({
+				env: this.env,
+				defaultUrl: previewUrl,
+				verification: this.turnVerification,
 			}),
 			...createCloudflareStackTools(),
 		} as unknown as ToolSet;

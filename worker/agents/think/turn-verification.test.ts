@@ -39,6 +39,49 @@ describe('isTurnVerified', () => {
 			),
 		).toBe(false);
 	});
+
+	it('is true when auditPassed is undefined (audit not yet run — non-blocking)', () => {
+		// undefined means the audit tool was not called; fail-open for non-landing turns
+		expect(
+			isTurnVerified(
+				base({
+					deployed: true,
+					consoleChecked: true,
+					consoleClean: true,
+					previewOk: true,
+					auditPassed: undefined,
+				}),
+			),
+		).toBe(true);
+	});
+
+	it('is true when auditPassed is true', () => {
+		expect(
+			isTurnVerified(
+				base({
+					deployed: true,
+					consoleChecked: true,
+					consoleClean: true,
+					previewOk: true,
+					auditPassed: true,
+				}),
+			),
+		).toBe(true);
+	});
+
+	it('is false when auditPassed is explicitly false', () => {
+		expect(
+			isTurnVerified(
+				base({
+					deployed: true,
+					consoleChecked: true,
+					consoleClean: true,
+					previewOk: true,
+					auditPassed: false,
+				}),
+			),
+		).toBe(false);
+	});
 });
 
 describe('computeTurnCreditAdjustment (zero-waste billing)', () => {
@@ -97,5 +140,21 @@ describe('turnNotWorkingMessage', () => {
 			base({ deployed: true, consoleChecked: false, lastError: 'preview returned 503' }),
 		);
 		expect(msg).toContain('preview returned 503');
+	});
+
+	it('mentions DOM audit when that is the blocking reason', () => {
+		const msg = turnNotWorkingMessage(
+			base({
+				deployed: true,
+				consoleChecked: true,
+				consoleClean: true,
+				previewOk: true,
+				auditPassed: false,
+				lastError: 'DOM audit failed: low contrast 2.1:1',
+			}),
+		);
+		expect(msg).not.toBeNull();
+		expect(msg!.startsWith(NOT_WORKING_PREFIX)).toBe(true);
+		expect(msg).toContain('low contrast 2.1:1');
 	});
 });

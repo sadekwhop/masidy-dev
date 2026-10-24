@@ -13,6 +13,45 @@ This skill captures a specific landing-page register: warm cream backgrounds (NO
 
 ---
 
+## Landing Page Quality Gates (MANDATORY — check before every deploy)
+
+Run through every item before calling `deploy_space`. `audit_dom` will catch failures programmatically; fix them before reporting the turn complete.
+
+### Primary CTA
+- **Every hero section MUST have a visible primary CTA button.** It must be rendered in the DOM (not `display:none`, not zero-size), have a non-empty label (e.g. "Get Started", "Try Free"), and have text-background contrast ≥ 4.5:1.
+- Use the accent color `#FF4801` (or topic-appropriate brand color) on the button background with a contrasting label. Never use a muted/subtle color for the primary CTA.
+- The CTA must be a real `<button>` or `<a href>`, not a `<div>` with a click handler. Wrap it in `<a>` when it navigates.
+
+### Forms
+- **Every `<form>` MUST have a visible `<button type="submit">` or `<input type="submit">`.** A form with no submit button will fail the DOM audit and the end-of-turn gate.
+- The submit button must have a clear human-readable label, not just "Submit" — use action-specific labels ("Sign up", "Join waitlist", "Send message").
+
+### Layout and padding
+- **Every section MUST use a consistent centered container with side padding.** Minimum horizontal padding: `16px` on mobile, `24px` on tablet, `32px` on desktop. Content MUST NOT touch the viewport edge.
+- Use a single container class across all sections (e.g. `class="container"` with `max-width:1200px; margin:0 auto; padding:0 clamp(16px,4vw,48px)`).
+- No section may cause horizontal scrolling.
+
+### Icons and visuals
+- Use **topic-appropriate icons or inline SVG** for feature cards, list items, and section embellishments.
+  - Preferred CDN: Lucide Icons (`https://esm.sh/lucide@latest` or SVG sprite), Heroicons (inline SVG), or simple Unicode symbols for lightweight cases.
+  - Never leave empty boxes, grey placeholders, or unstyled `<div>` "icon" containers without actual icon content.
+  - All `<img>` and inline `<svg>` elements must load correctly — broken images fail the DOM audit.
+- Do NOT embed large raster image URLs that may 404. Use inline SVG illustrations or CSS shapes instead for decorative elements.
+
+### Sample / placeholder content
+- **Mark all invented content with a visible "Sample" label.**
+  - Reviews, testimonials, star ratings → add a small `<span class="sample-label">Sample</span>` badge near each.
+  - Named users, profile pictures, company names, dates, and statistics that are not real → add `(Sample)` inline or a `data-sample="true"` attribute with the `.sample-label` style applied.
+  - The `.sample-label` style: `background:#FFF3CD; color:#856404; font-size:10px; font-weight:600; padding:1px 5px; border-radius:3px; letter-spacing:.05em; vertical-align:middle`.
+- **In the final message to the user**, state explicitly: "All reviews, names, statistics, and dates are sample placeholder content — replace them with real data before publishing."
+
+### Final message rules
+- Only list features that `get_browser_console_logs` showed zero errors for AND `audit_dom` reported as passed.
+- Do NOT say "beautiful", "pixel-perfect", "fully functional", or "production-ready" unless `audit_dom` passed with zero issues.
+- If `audit_dom` found issues, list them in the final message and explain what was fixed (or what remains to be fixed).
+
+---
+
 ## Quick Reference (TL;DR)
 
 ```

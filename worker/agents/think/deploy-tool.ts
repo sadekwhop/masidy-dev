@@ -106,6 +106,7 @@ export function createDeploySpaceTool(opts: DeploySpaceToolOptions): Tool {
 					verification.consoleChecked = false;
 					verification.consoleClean = false;
 					verification.previewOk = false;
+					verification.auditPassed = undefined;
 					verification.lastError = undefined;
 				}
 				retryState.consecutiveFailures = 0;
