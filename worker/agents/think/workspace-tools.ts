@@ -145,3 +145,4 @@ export function createSpaceListTool(options: { ops: SpaceWorkspaceOps }): Tool {
 		},
 	});
 }
+

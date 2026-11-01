@@ -28,7 +28,14 @@ export function createApp(env: Env): Hono<AppEnv> {
         // Skip secure headers for OAuth redirect endpoints to avoid
         // immutable header errors on redirect responses.
         const pathname = new URL(c.req.url).pathname;
-        if (pathname.startsWith('/oauth/') || pathname === '/auth/callback') {
+        if (
+            pathname.startsWith('/api/auth/oauth/') ||
+            pathname.startsWith('/api/auth/callback/') ||
+            pathname.startsWith('/api/auth/link/') ||
+            pathname.startsWith('/api/github-exporter/callback') ||
+            pathname.startsWith('/oauth/') ||
+            pathname === '/auth/callback'
+        ) {
             return next();
         }
         // Apply secure headers
