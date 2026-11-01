@@ -337,7 +337,58 @@ const MODELS_MASTER = {
             creditCost: 8, // $0.22
             contextSize: 262144, // 256K Context
         },
-    }
+    },
+    // --- Workers AI Models ---
+    WORKERS_AI_GPT_OSS_120B: {
+        id: 'workersai/@cf/openai/gpt-oss-120b',
+        config: {
+            name: 'GPT OSS 120B',
+            size: ModelSize.LARGE,
+            provider: 'workersai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_LLAMA_3_3_70B: {
+        id: 'workersai/@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+        config: {
+            name: 'Llama 3.3 70B',
+            size: ModelSize.REGULAR,
+            provider: 'workersai',
+            creditCost: 0,
+            contextSize: 24000,
+        }
+    },
+    WORKERS_AI_LLAMA_3_1_8B: {
+        id: 'workersai/@cf/meta/llama-3.1-8b-instruct-fast',
+        config: {
+            name: 'Llama 3.1 8B',
+            size: ModelSize.LITE,
+            provider: 'workersai',
+            creditCost: 0,
+            contextSize: 60000,
+        }
+    },
+    WORKERS_AI_GLM_5_2: {
+        id: 'workersai/@cf/zai-org/glm-5.2',
+        config: {
+            name: 'GLM 5.2',
+            size: ModelSize.LARGE,
+            provider: 'workersai',
+            creditCost: 0,
+            contextSize: 128000,
+        }
+    },
+    WORKERS_AI_GLM_4_7_FLASH: {
+        id: 'workersai/@cf/zai-org/glm-4.7-flash',
+        config: {
+            name: 'GLM 4.7 Flash',
+            size: ModelSize.LITE,
+            provider: 'workersai',
+            creditCost: 0,
+            contextSize: 131072,
+        }
+    },
 } as const;
 
 /**

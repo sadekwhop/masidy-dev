@@ -2,125 +2,107 @@
  * For more details on how to configure Wrangler, refer to:
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
- {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "masidy-dev",
-	"main": "worker/index.ts",
-	// Resolve the vendored artifacts-viewer server entrypoints for the Worker
-	// bundle. `wrangler deploy` uses esbuild (not Vite), so it does not read
-	// vite.config.ts aliases; these mirror them for the two server-only
-	// specifiers the Worker imports (the React/client/styles subpaths are
-	// frontend-only and resolved by Vite).
-	"alias": {
-		"artifacts-viewer": "./packages/artifacts-viewer/packages/artifacts-viewer/src/index.ts",
-		"artifacts-viewer/server/cache": "./packages/artifacts-viewer/packages/artifacts-viewer/src/server/cache-adapters.ts"
-	},
-	// Facets (durable-object-facets) require a recent compat date — bumped
-	// from 2025-08-10 to enable `ctx.facets.get()` for space-generated
-	// apps' env.DB binding.
-	"compatibility_date": "2026-10-01",
-	"compatibility_flags": ["nodejs_compat", "durable_object_io_tasks_prevent_eviction"],
-	// Preserve dashboard-managed vars on deploy so dashboard-only settings
-	// (e.g. ENABLE_ARTIFACTS and ENABLE_READ_REPLICAS) are not deleted by `wrangler deploy`.
-	"keep_vars": true,
-	// Treat imported `.md` files (e.g. Think agent SKILL.md) as Text modules so
-	// `wrangler deploy` can bundle markdown imports. Unlike `.txt`, `.md` has no
-	// built-in esbuild loader. The `?raw` glob is required because wrangler's
-	// module-collection `onResolve` filter matches the raw import specifier
-	// (which ends in `?raw`) before the query string is stripped.
-	"rules": [
-		{ "type": "Text", "globs": ["**/*.md", "**/*.md?raw"], "fallthrough": true }
-	],
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "masidy-dev",
+    "main": "worker/index.ts",
+    "alias": {
+        "artifacts-viewer": "./packages/artifacts-viewer/packages/artifacts-viewer/src/index.ts",
+        "artifacts-viewer/server/cache": "./packages/artifacts-viewer/packages/artifacts-viewer/src/server/cache-adapters.ts"
+    },
+    "compatibility_date": "2026-10-01",
+    "compatibility_flags": [
+        "nodejs_compat",
+        "durable_object_io_tasks_prevent_eviction"
+    ],
+    "keep_vars": true,
+    "rules": [
+        {
+            "type": "Text",
+            "globs": [
+                "**/*.md",
+                "**/*.md?raw"
+            ],
+            "fallthrough": true
+        }
+    ],
     "version_metadata": {
         "binding": "CF_VERSION_METADATA"
     },
-	"assets": {
-		"directory": "dist/client",
-		"not_found_handling": "single-page-application",
-		// "run_worker_first": ["!/src/*", "!/api/docs/*"],
+    "assets": {
+        "directory": "dist/client",
+        "not_found_handling": "single-page-application",
         "run_worker_first": true,
         "binding": "ASSETS"
-	},
-	"observability": {
-		"enabled": true,
+    },
+    "observability": {
+        "enabled": true,
         "head_sampling_rate": 1,
-		"logs": {
-			"enabled": true,
-			"invocation_logs": true
-		},
-		"traces": {
-			"enabled": true
-		}
-	},
+        "logs": {
+            "enabled": true,
+            "invocation_logs": true
+        },
+        "traces": {
+            "enabled": true
+        }
+    },
     "unsafe": {
         "bindings": [
             {
                 "name": "API_RATE_LIMITER",
                 "type": "ratelimit",
                 "namespace_id": "2101",
-                "simple": { "limit": 10000, "period": 60 }
+                "simple": {
+                    "limit": 10000,
+                    "period": 60
+                }
             },
             {
                 "name": "AUTH_RATE_LIMITER",
                 "type": "ratelimit",
                 "namespace_id": "2102",
-                "simple": { "limit": 1000, "period": 60 }
+                "simple": {
+                    "limit": 1000,
+                    "period": 60
+                }
             }
         ]
     },
-	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
-	 */
-	"ai": {
-		"binding": "AI",
+    "ai": {
+        "binding": "AI",
         "remote": true
-	},
-	"browser": {
-		"binding": "BROWSER",
-		"remote": true
-	},
-    "artifacts": [
+    },
+    "browser": {
+        "binding": "BROWSER",
+        "remote": true
+    },
+    "containers": [
         {
-            "binding": "ARTIFACTS",
-            "namespace": "vibesdk-production"
+            "class_name": "UserAppSandboxService",
+            "image": "./SandboxDockerfile",
+            "max_instances": 10,
+            "instance_type": "standard-3",
+            "rollout_step_percentage": 100,
+            "ssh": {
+                "enabled": true
+            }
         }
     ],
-	"containers": [
-		{
-			"class_name": "UserAppSandboxService",
-			"image": "./SandboxDockerfile",
-            // "image": "registry.cloudflare.com/vibesdk-production-userappsandboxservice:cfe197fc",
-            // Altering max_instances value will have no effect. Please use the MAX_SANDBOX_INSTANCES var instead.
-			"max_instances": 1400,
-            // ATTENTION: Altering instance_type value will have no effect. Please use the SANDBOX_INSTANCE_TYPE var instead.
-            "instance_type": {
-                "vcpu": 4,
-                "memory_mib": 8192,
-                "disk_mb": 10240
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_name": "vibesdk-db",
+            "database_id": "24b36f03-3d26-4919-9f13-1ac0c8f6490c",
+            "migrations_dir": "migrations",
+            "remote": true
+        }
+    ],
+    "durable_objects": {
+        "bindings": [
+            {
+                "class_name": "CodeGeneratorAgent",
+                "name": "CodeGenObject"
             },
-            "rollout_step_percentage": 100,
-			"ssh": {
-				"enabled": true
-			}
-		}
-	],
-	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "vibesdk-db",
-			"database_id": "24b36f03-3d26-4919-9f13-1ac0c8f6490c",
-			"migrations_dir": "migrations"
-		}
-	],
-	"durable_objects": {
-		"bindings": [
-			{
-				"class_name": "CodeGeneratorAgent",
-				"name": "CodeGenObject"
-			},
             {
                 "class_name": "UserAppSandboxService",
                 "name": "Sandbox"
@@ -141,36 +123,36 @@
                 "class_name": "SpaceDO",
                 "name": "SPACE_DO"
             }
-		]
-	},
+        ]
+    },
     "worker_loaders": [
         {
             "binding": "LOADER"
         }
     ],
     "r2_buckets": [
-      {
-        "binding": "TEMPLATES_BUCKET",
-        "bucket_name": "vibesdk-templates","preview_bucket_name": "vibesdk-templates"
-      }
+        {
+            "binding": "TEMPLATES_BUCKET",
+            "bucket_name": "vibesdk-templates",
+            "preview_bucket_name": "vibesdk-templates",
+            "remote": true
+        }
     ],
     "kv_namespaces": [
         {
             "binding": "VibecoderStore",
-            "id": "12b30a1588c247118b812f7c5a0236cf"
+            "id": "b9fe6050987b49cdbdc84a6d529ec810",
+            "remote": true
         }
     ],
-    // "placement": {
-    //   "mode": "smart"
-    // },
-	"migrations": [
-		{
-			"new_sqlite_classes": [
-				"CodeGeneratorAgent",
-				"UserAppSandboxService"
-			],
-			"tag": "v1"
-		},
+    "migrations": [
+        {
+            "new_sqlite_classes": [
+                "CodeGeneratorAgent",
+                "UserAppSandboxService"
+            ],
+            "tag": "v1"
+        },
         {
             "new_sqlite_classes": [
                 "DORateLimitStore"
@@ -195,27 +177,21 @@
             ],
             "tag": "v6"
         }
-	],
-	"routes": [
+    ],
+    "routes": [
         {
-            "pattern": "build.cloudflare.dev",
+            "pattern": "masidy.dev",
             "custom_domain": true
         },
         {
-            "pattern": "*.masidy.dev/*",
-            "zone_name": "masidy.dev"
-        },
-        {
-            "pattern": "*build-preview.cloudflare.dev/*",
+            "pattern": "*masidy.dev/*",
             "custom_domain": false,
-            "zone_id": "db01fac4261b2604aacad8410443a3e2"
+            "zone_id": "34a38aa9af6e0c2dbf3eee031b1d1c7a"
         }
     ],
-	"vars": {
+    "vars": {
         "TEMPLATES_REPOSITORY": "https://github.com/cloudflare/vibesdk-templates",
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
-        // Cloudflare Artifacts namespace for the read-only Repo viewer proxy.
-        // Must match the `artifacts` binding namespace above.
         "ARTIFACTS_NAMESPACE": "vibesdk-production",
         "PLATFORM_CAPABILITIES": {
             "features": {
@@ -231,12 +207,19 @@
             },
             "version": "1.0.0"
         },
-        "CUSTOM_DOMAIN": "masidy.dev",
         "MAX_SANDBOX_INSTANCES": "10",
         "SANDBOX_INSTANCE_TYPE": "standard-3",
         "DEV_BROWSER_SIDECAR_URL": "http://127.0.0.1:9223",
-        "DEV_BROWSER_PREVIEW_ORIGIN": "http://localhost:5173"
+        "DEV_BROWSER_PREVIEW_ORIGIN": "http://localhost:5173",
+        "CUSTOM_DOMAIN": "masidy.dev",
+        "DISPATCH_NAMESPACE": "masidy-dev"
     },
-	"workers_dev": false,
-	"preview_urls": false
+    "workers_dev": false,
+    "preview_urls": false,
+    "artifacts": [
+        {
+            "binding": "ARTIFACTS",
+            "namespace": "vibesdk-production"
+        }
+    ]
 }

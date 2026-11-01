@@ -1801,7 +1801,7 @@ class CloudflareDeploymentManager {
 
 		// Add environment variables that are set
 		secretVars.forEach((varName) => {
-			let value = varName === 'JWT_SECRET' ? generatedJwtSecret : process.env[varName];
+			let value = varName === 'JWT_SECRET' ? (process.env.JWT_SECRET || generatedJwtSecret) : process.env[varName];
 			
 			// Apply fallback logic for CLOUDFLARE_AI_GATEWAY_TOKEN
 			if (varName === 'CLOUDFLARE_AI_GATEWAY_TOKEN' && (!value || value === '')) {

@@ -131,9 +131,16 @@ export function parseCookies(cookieHeader: string): Record<string, string> {
 	const pairs = cookieHeader.split(';');
 
 	for (const pair of pairs) {
-		const [key, value] = pair.trim().split('=');
-		if (key && value) {
-			cookies[key] = decodeURIComponent(value);
+		const eqIndex = pair.indexOf('=');
+		if (eqIndex === -1) continue;
+		const key = pair.slice(0, eqIndex).trim();
+		const rawValue = pair.slice(eqIndex + 1).trim();
+		if (key && rawValue) {
+			try {
+				cookies[key] = decodeURIComponent(rawValue);
+			} catch {
+				cookies[key] = rawValue;
+			}
 		}
 	}
 

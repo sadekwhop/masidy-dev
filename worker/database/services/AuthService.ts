@@ -436,6 +436,11 @@ export class AuthService extends BaseService {
             .get();
 
         if (!oauthState || new Date(oauthState.expiresAt) < now) {
+            logger.warn('OAuth state lookup failed or expired', {
+                provider,
+                hasState: !!oauthState,
+                isExpired: oauthState ? new Date(oauthState.expiresAt) < now : undefined,
+            });
             throw new SecurityError(
                 SecurityErrorType.CSRF_VIOLATION,
                 'Invalid or expired OAuth state',

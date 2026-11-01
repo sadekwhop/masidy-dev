@@ -529,7 +529,9 @@ export class AuthController extends BaseController {
             
             return response;
         } catch (error) {
-            this.logger.error('OAuth callback failed', error);
+            const errorMsg = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+            const errorStack = error instanceof Error ? error.stack : undefined;
+            this.logger.error(`OAuth callback failed: ${errorMsg}`, { error, stack: errorStack });
             const baseUrl = new URL(request.url).origin;
             const reason = error instanceof SecurityError && error.statusCode === 409
                 ? 'email_exists'

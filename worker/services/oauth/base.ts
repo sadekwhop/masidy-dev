@@ -112,7 +112,14 @@ export abstract class BaseOAuthProvider {
             throw new Error(`Token ${context} failed: ${error}`);
         }
 
-        return (await response.json()) as RawTokenResponse;
+        const data = (await response.json()) as RawTokenResponse & { error?: string; error_description?: string };
+        if (data.error) {
+            const desc = data.error_description ? `: ${data.error_description}` : '';
+            logger.error(`Token ${context} returned error response`, { provider: this.provider, error: data.error, description: data.error_description });
+            throw new Error(`Token ${context} error: ${data.error}${desc}`);
+        }
+
+        return data;
     }
 
     /**

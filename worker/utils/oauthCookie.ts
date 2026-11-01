@@ -102,5 +102,7 @@ export function buildClearOAuthNonceCookie(env: Env): string {
 
 /** Read the OAuth state nonce cookie value, if present. */
 export function readOAuthNonceCookie(request: Request | undefined | null, env: Env): string | null {
-	return readRequestCookie(request, nonceCookieName(env));
+	return readRequestCookie(request, nonceCookieName(env))
+		?? readRequestCookie(request, PROD_NONCE_COOKIE)
+		?? readRequestCookie(request, DEV_NONCE_COOKIE);
 }
