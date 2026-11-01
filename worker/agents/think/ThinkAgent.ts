@@ -25,6 +25,7 @@ import { RateLimitService } from '../../services/rate-limit/rateLimits';
 import { hasCloudflareConfigured } from '../../services/rate-limit/usageChecker';
 import type { RateLimitSettings } from '../../services/rate-limit/config';
 import { THINK_MODEL_CONFIG } from './model-config';
+import { PaymentService } from '../../database/services/PaymentService';
 import {
 	computeTurnCreditAdjustment,
 	isTurnVerified,
@@ -336,6 +337,34 @@ export class ThinkAgent extends Think<Env> {
 	}> {
 		const v = this.turnVerification;
 		if (!v.deployed || isTurnVerified(v)) {
+			const config = this.getConfig<ThinkAgentConfig>();
+			if (this.turnCreditsConsumed > 0 && config?.userId && this.env.DB) {
+				try {
+					const paymentService = new PaymentService(this.env);
+					const actualCost = Math.round(this.turnCreditsConsumed * 0.005 * 10000) / 10000;
+					const chargedCost = Math.round(actualCost * 2 * 10000) / 10000;
+					if (chargedCost > 0) {
+						const deduction = await paymentService.deductCredits(
+							config.userId,
+							'think_agent',
+							actualCost,
+							chargedCost,
+							{
+								agentId: this.name,
+								model: config.model.modelName,
+								turnCreditsConsumed: this.turnCreditsConsumed,
+							},
+						);
+						if (deduction) {
+							console.info(
+								`[ThinkAgent] Deducted ${chargedCost} credits for user ${config.userId}. Remaining balance: ${deduction.balance}`,
+							);
+						}
+					}
+				} catch (e) {
+					console.error('[ThinkAgent] Failed to deduct credits:', e);
+				}
+			}
 			return { verified: true };
 		}
 		const message = turnNotWorkingMessage(v) ?? 'The app is NOT working.';

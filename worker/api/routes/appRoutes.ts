@@ -64,6 +64,9 @@ export function setupAppRoutes(app: Hono<AppEnv>): void {
 
     // Delete app - OWNER ONLY
     appRouter.delete('/:id', setAuthLevel(AuthConfig.ownerOnly), adaptController(AppController, AppController.deleteApp));
+
+    // Publish app to Masidy live URL - OWNER ONLY
+    appRouter.post('/:id/publish', setAuthLevel(AuthConfig.ownerOnly), adaptController(AppController, AppController.publishApp));
     
     // ========================================
     // GIT CLONE ROUTES

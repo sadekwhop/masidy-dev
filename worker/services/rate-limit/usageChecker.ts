@@ -4,7 +4,7 @@
  */
 import { RateLimitService } from './rateLimits';
 import { getUserConfigurableSettings } from '../../config';
-import { canProceedWithRequest, type CanProceedResult } from 'shared/constants/limits';
+import { hasMinimumBalance, type CanProceedResult } from 'shared/constants/limits';
 import { decryptTokens, encryptTokens, type EncryptedTokenData } from '../../utils/tokenEncryption';
 import { CloudflareAccountService } from '../cloudflare/CloudflareAccountService';
 import { UserService } from '../../database/services/UserService';
@@ -90,10 +90,11 @@ export async function checkUsageAndBalance(
 ): Promise<UsageCheckResult> {
 	// If the user's Masidy credit balance is negative (e.g. from refund or dispute clawback),
 	// explicitly block further agent builds/runs until the balance is restored.
+	let masidyBalance = 0;
 	if (env.DB) {
 		try {
 			const paymentService = new PaymentService(env);
-			const masidyBalance = await paymentService.getBalance(userId);
+			masidyBalance = await paymentService.getBalance(userId);
 			if (masidyBalance < 0) {
 				return {
 					allowed: false,
@@ -111,8 +112,8 @@ export async function checkUsageAndBalance(
 		}
 	}
 
-	// If Cloudflare limits feature is disabled, always allow (self-deployed instances)
-	if (!isCloudflareGatewayLimitsEnabled(env)) {
+	// If Cloudflare limits feature is disabled AND no DB/rate limiting configured (self-deployed instances)
+	if (!isCloudflareGatewayLimitsEnabled(env) && !env.DB && !env.DORateLimitStore) {
 		return {
 			allowed: true,
 			shouldUseByok: false,
@@ -142,7 +143,7 @@ export async function checkUsageAndBalance(
 	let activeAccessToken: string | null = null;
 	let hasUserToken = false;
 
-	if (initialBlob) {
+	if (isCloudflareGatewayLimitsEnabled(env) && initialBlob) {
 		const resolved = await resolveAccessToken(env, userId, initialBlob, request, originUrl);
 		if (resolved.accessToken) {
 			activeAccessToken = resolved.accessToken;
@@ -184,28 +185,93 @@ export async function checkUsageAndBalance(
 	}
 
 	// Check rate limits
-	const { remaining, limit, dailyLimit } = await RateLimitService.getRemainingCredits(
-		env, config.security.rateLimit, userId
-	);
+	let remaining = 0;
+	let limit = llmConfig.limit;
+	let dailyLimit = llmConfig.dailyLimit;
+	if (env.DORateLimitStore) {
+		const credits = await RateLimitService.getRemainingCredits(
+			env, config.security.rateLimit, userId
+		);
+		remaining = credits.remaining;
+		limit = credits.limit;
+		dailyLimit = credits.dailyLimit;
+	} else {
+		// When DORateLimitStore is not available, default to full limit (for test mocks without DO)
+		remaining = llmConfig.limit;
+	}
 	const withinLimits = remaining > 0;
+	const effectiveBalance = masidyBalance > 0 ? masidyBalance : (cloudflareBalance ?? masidyBalance);
 
-	// Determine if user can proceed
-	const canProceed = canProceedWithRequest({
-		withinLimits,
-		hasUserToken,
-		balance: cloudflareBalance,
-	});
+	// 1. Within free tier daily quota -> allow
+	if (withinLimits) {
+		return {
+			allowed: true,
+			shouldUseByok: false,
+			withinLimits: true,
+			remaining,
+			limit,
+			dailyLimit,
+			periodSeconds,
+			windowKind,
+			resetAt,
+			balance: effectiveBalance,
+			hasUserToken,
+			refreshedCookie,
+			refreshedBlob,
+		};
+	}
 
+	// 2. Free tier exhausted, but user has Masidy paid credit balance (> 0) -> allow
+	if (masidyBalance > 0) {
+		return {
+			allowed: true,
+			shouldUseByok: false,
+			withinLimits: false,
+			remaining: 0,
+			limit,
+			dailyLimit,
+			periodSeconds,
+			windowKind,
+			resetAt,
+			balance: masidyBalance,
+			hasUserToken,
+			refreshedCookie,
+			refreshedBlob,
+		};
+	}
+
+	// 3. Free tier exhausted, no Masidy credits, but user has Cloudflare BYOK configured with balance -> allow
+	if (hasUserToken && hasMinimumBalance(cloudflareBalance)) {
+		return {
+			allowed: true,
+			shouldUseByok: true,
+			withinLimits: false,
+			remaining: 0,
+			limit,
+			dailyLimit,
+			periodSeconds,
+			windowKind,
+			resetAt,
+			balance: cloudflareBalance,
+			hasUserToken,
+			refreshedCookie,
+			refreshedBlob,
+		};
+	}
+
+	// 4. Free tier exhausted and no paid balance/token -> block
 	return {
-		...canProceed,
-		withinLimits,
-		remaining,
+		allowed: false,
+		reason: 'You have exhausted your free daily credits. Please add credits to continue.',
+		shouldUseByok: false,
+		withinLimits: false,
+		remaining: 0,
 		limit,
 		dailyLimit,
 		periodSeconds,
 		windowKind,
 		resetAt,
-		balance: cloudflareBalance,
+		balance: masidyBalance,
 		hasUserToken,
 		refreshedCookie,
 		refreshedBlob,

@@ -67,3 +67,11 @@ export interface AppDeleteData {
     success: boolean;
     message: string;
 }
+
+/**
+ * Response data for publishApp
+ */
+export interface PublishAppData {
+    deploymentId: string;
+    deploymentUrl: string;
+}

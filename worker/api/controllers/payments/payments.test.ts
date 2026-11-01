@@ -786,6 +786,44 @@ describe('Negative Balance Enforcement (checkUsageAndBalance)', () => {
 		expect(result.allowed).toBe(true);
 		expect(result.withinLimits).toBe(true);
 	});
+
+	it('blocks user requests when free daily credits are exhausted and balance is zero', async () => {
+		mockGetBalance.mockResolvedValue(0);
+
+		const mockDORateLimit = {
+			getByName: vi.fn().mockReturnValue({
+				getRemainingLimit: vi.fn().mockResolvedValue(0),
+			}),
+		};
+
+		const result = await checkUsageAndBalance(
+			{ DB: {}, DORateLimitStore: mockDORateLimit } as unknown as Env,
+			'user-exhausted',
+		);
+
+		expect(result.allowed).toBe(false);
+		expect(result.withinLimits).toBe(false);
+		expect(result.reason).toContain('exhausted your free daily credits');
+	});
+
+	it('allows user requests when free daily credits are exhausted but user has positive paid balance', async () => {
+		mockGetBalance.mockResolvedValue(10.0);
+
+		const mockDORateLimit = {
+			getByName: vi.fn().mockReturnValue({
+				getRemainingLimit: vi.fn().mockResolvedValue(0),
+			}),
+		};
+
+		const result = await checkUsageAndBalance(
+			{ DB: {}, DORateLimitStore: mockDORateLimit } as unknown as Env,
+			'user-paid',
+		);
+
+		expect(result.allowed).toBe(true);
+		expect(result.withinLimits).toBe(false);
+		expect(result.balance).toBe(10.0);
+	});
 });
 
 describe('Zero-Waste Billing & Minimum Deposit Enforcement', () => {
@@ -808,6 +846,32 @@ describe('Zero-Waste Billing & Minimum Deposit Enforcement', () => {
 		expect(result.status).toBe('failed');
 		// Confirm no credit deduction occurred
 		expect(mockDeductCredits).not.toHaveBeenCalled();
+	});
+
+	it('calls deductCredits on successful completed/verified turns with 2x markup', async () => {
+		mockDeductCredits.mockResolvedValue({ balance: 19.80, success: true });
+
+		const paymentService = new (await import('../../../database/services/PaymentService')).PaymentService({} as unknown as Env);
+		const turnCreditsConsumed = 20;
+		const actualCost = Math.round(turnCreditsConsumed * 0.005 * 10000) / 10000;
+		const chargedCost = Math.round(actualCost * 2 * 10000) / 10000;
+
+		const result = await paymentService.deductCredits(
+			'user-1',
+			'think_agent',
+			actualCost,
+			chargedCost,
+			{ turnCreditsConsumed, model: 'workersai/@cf/zai-org/glm-4.7-flash' },
+		);
+
+		expect(result?.success).toBe(true);
+		expect(mockDeductCredits).toHaveBeenCalledWith(
+			'user-1',
+			'think_agent',
+			0.1,
+			0.2,
+			expect.objectContaining({ turnCreditsConsumed: 20 }),
+		);
 	});
 
 	it('enforces $5 minimum deposit on Stripe checkout (rejects $1 or $2 packs)', async () => {

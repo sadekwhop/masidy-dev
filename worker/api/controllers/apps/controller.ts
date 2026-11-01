@@ -10,8 +10,10 @@ import {
     SingleAppData,
     FavoriteToggleData,
     UpdateAppVisibilityData,
-    AppDeleteData
+    AppDeleteData,
+    PublishAppData
 } from './types';
+import { buildManagedAppDeploymentId, buildManagedAppUrl } from '../../../utils/urls';
 import { toPublicAppListItem } from './publicAppDto';
 import { parsePublicAppsQuery } from './publicAppsQuery';
 // import { withCache } from '../../../services/cache/wrapper';
@@ -277,6 +279,51 @@ export class AppController extends BaseController {
         } catch (error) {
             this.logger.error('Error deleting app:', error);
             return AppController.createErrorResponse<AppDeleteData>('Failed to delete app', 500);
+        }
+    }
+
+    // Publish app to Masidy live URL
+    static async publishApp(
+        _request: Request,
+        env: Env,
+        _ctx: ExecutionContext,
+        context: RouteContext,
+    ): Promise<ControllerResponse<ApiResponse<PublishAppData>>> {
+        try {
+            const user = context.user!;
+
+            const appId = context.pathParams.id;
+            if (!appId) {
+                return AppController.createErrorResponse<PublishAppData>('App ID is required', 400);
+            }
+
+            const appService = new AppService(env);
+            const app = await appService.getSingleAppWithFavoriteStatus(appId, user.id);
+            if (!app) {
+                return AppController.createErrorResponse<PublishAppData>('App not found', 404);
+            }
+
+            // Publish via SpaceDO
+            const spaceNs = env.SPACE_DO as unknown as DurableObjectNamespace;
+            const spaceStub = spaceNs.get(spaceNs.idFromName(appId)) as unknown as {
+                publish: (branch: string) => Promise<{ commitHash: string; sizeBytes: number }>;
+            };
+            await spaceStub.publish('main');
+
+            const deploymentId = buildManagedAppDeploymentId(app.title || 'app', appId);
+            const updated = await appService.updateDeploymentId(appId, deploymentId);
+            if (!updated) {
+                return AppController.createErrorResponse<PublishAppData>('Failed to update app deployment ID', 500);
+            }
+
+            const deploymentUrl = buildManagedAppUrl(env, deploymentId);
+            return AppController.createSuccessResponse<PublishAppData>({
+                deploymentId,
+                deploymentUrl,
+            });
+        } catch (error) {
+            this.logger.error('Error publishing app:', error);
+            return AppController.createErrorResponse<PublishAppData>('Failed to publish app', 500);
         }
     }
 }
