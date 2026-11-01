@@ -2,6 +2,9 @@
 name: frontend-design-saas
 description: S-tier SaaS dashboard and product UI reference. Use this skill when building application shells, data tables, settings panels, billing pages, dashboards, auth flows, admin tools, or any internal/customer-facing SaaS product UI. Inspired by Stripe, Linear, Vercel, Airbnb, Notion. Covers neutral-led design tokens, sidebar+content shells, dense data UIs, form-heavy configuration pages, command palettes, empty states, and the accessibility (WCAG AA+) bar these products clear.
 ---
+> [!IMPORTANT]
+> **SpaceDO Runtime Contract**: All backend code must run in `src/index.ts` exporting `class App extends DurableObject`. All data storage must use embedded SQLite (`this.ctx.storage.sql`). Always use `wrangler.json` (never `wrangler.toml`, no external D1/KV bindings). Static files go in `public/` and are served directly with NO build step (no JSX, no TypeScript in public/).
+
 
 # SaaS Design System (Stripe / Linear / Vercel lineage)
 

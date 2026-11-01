@@ -58,7 +58,7 @@ export function createDeploySpaceTool(opts: DeploySpaceToolOptions): Tool {
 		execute: async (args: { branch?: string }) => {
 			if (retryState.consecutiveFailures >= MAX_CONSECUTIVE_BUILD_FAILURES) {
 				return JSON.stringify({
-					error: `RETRY_CAP_REACHED: ${MAX_CONSECUTIVE_BUILD_FAILURES} consecutive build failures (failed deploys or unverified previews). Build paused to protect your credits. Review the latest deploy/preview error before deploying again.`,
+					error: `RETRY_CAP_REACHED: Maximum consecutive build failures (${MAX_CONSECUTIVE_BUILD_FAILURES}) reached for this turn. Deployment is halted to avoid wasting credits. Do not call deploy_space again this turn. Explain the current status and remaining issues to the user.`,
 				});
 			}
 

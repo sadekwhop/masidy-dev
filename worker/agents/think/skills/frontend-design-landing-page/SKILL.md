@@ -2,6 +2,9 @@
 name: frontend-design-landing-page
 description: Marketing landing page and conversion-focused product page reference. Use this skill when building hero sections, feature grids, pricing pages, testimonials, CTAs, footers, navigation bars, or any public-facing marketing surface. Covers a warm, professional, developer-friendly design language (cream backgrounds, generous whitespace, pill CTAs, corner-bracket card decorations) and a complete token set, animation system, and copy-paste component snippets. NOT for product/dashboard UIs — use frontend-design-saas for those.
 ---
+> [!IMPORTANT]
+> **SpaceDO Runtime Contract**: All backend code must run in `src/index.ts` exporting `class App extends DurableObject`. All data storage must use embedded SQLite (`this.ctx.storage.sql`). Always use `wrangler.json` (never `wrangler.toml`, no external D1/KV bindings). Static files go in `public/` and are served directly with NO build step (no JSX, no TypeScript in public/).
+
 
 # Landing Page Design System
 

@@ -307,7 +307,16 @@ export class ThinkCodingBehavior
 			'## Deploy & verify workflow (VibeSDK-specific)',
 			'Once you are actively building (the scope is clear or the user confirmed), this app is previewed on Cloudflare Workers via SpaceDO — there is no shell. In a building turn, do NOT end after only writing files:',
 			'For a request to fix, restart, or diagnose an existing preview, preserve the existing project. First inspect its files and deployment/preview error, then make the smallest necessary correction. Do not replace the project or invent a new scaffold. This platform uses the JavaScript/TypeScript `@cloudflare/worker-bundler`; never add Rust, Cargo, `build.rs`, or a `cargo-bundle` step. Do not claim a deploy or preview succeeded unless `deploy_space` and `get_browser_console_logs` confirm it. If the connection is lost, stop and report that accurately instead of repeating file operations.',
-			'Every project must follow the SpaceDO app contract: the configured `main` module must export a named `App` class that extends `DurableObject` imported from `cloudflare:workers`. Implement request handling in `App.fetch(request)`. Do not use `export default { fetch }` as the server entry. Static assets do not remove this requirement; configure `[assets]` and still provide the `App` class for API/fallback handling. Load the `cloudflare-bundler-apps` skill before creating or changing project files.',
+			'### CRITICAL SPACEDO APP RULES (STRICT INVARIANTS)',
+			'1. NEVER create or edit `wrangler.toml`. The platform EXCLUSIVELY uses `wrangler.json`. If `wrangler.toml` exists, DELETE it immediately with the `delete` tool.',
+			'2. NEVER add `d1_databases`, `kv_namespaces`, `r2_buckets`, or `durable_objects.bindings` to `wrangler.json`. Generated apps do NOT have access to external bindings. Storage is provided EXCLUSIVELY via `this.ctx.storage.sql` (embedded SQLite). Declaring external bindings will crash the deployment.',
+			'3. The server entry point in `src/index.ts` must export `class App extends DurableObject`. Implement all API handling in `App.fetch(request)`. NEVER use `export default { fetch }`.',
+			'4. Database storage: ALWAYS use the embedded SQLite database via `this.ctx.storage.sql` inside `App`. Initialize tables in the constructor via `this.ctx.storage.sql.exec(...)`. This database is zero-latency, ACID compliant, and directly inspected by the platform\'s IDE database viewer.',
+			'5. Static assets: Files in `public/` (index.html, styles.css, app.js) are served directly. There is NO build step (never write JSX/TSX in public/). Use modern Vanilla JS, HTML5, and Tailwind via CDN `<script src="https://cdn.tailwindcss.com"></script>`.',
+			'6. RELIABLE FILE EDITING: If the `edit` tool reports "old_string not found", DO NOT repeat failing edits. Use the `write` tool to overwrite the file with the complete updated content.',
+			'7. RETRY CAP: If `deploy_space` reports RETRY_CAP_REACHED, STOP immediately and report the current status and exact error to the user. Do not call `deploy_space` again in the same turn.',
+			'',
+			'Every project must follow the SpaceDO app contract: the configured `main` module must export a named `App` class that extends `DurableObject` imported from `cloudflare:workers`. Implement request handling in `App.fetch(request)`. Do not use `export default { fetch }` as the server entry. Static assets do not remove this requirement; configure wrangler.json and still provide the `App` class for API/fallback handling.',
 			'1. After writing or editing files, call `deploy_space` to commit and deploy so the preview rebuilds.',
 			'2. Then call `get_browser_console_logs` to inspect the running preview for client-side errors (JS exceptions, failed fetches, missing assets, hydration errors).',
 			'3. Then call `audit_dom` to check for visual issues: low-contrast CTAs or links, interactive elements with zero size, forms without a submit button, content touching the viewport edge, horizontal overflow, and broken images. **This step is mandatory whenever the project has a `public/` directory (i.e. static frontend files).** Fix every reported issue before reporting success.',
@@ -337,15 +346,134 @@ export class ThinkCodingBehavior
 	 * Bootstrap an empty SpaceDO: write a marker file and commit so the DO is
 	 * instantiated with a `main` branch and a valid HEAD.
 	 */
+	/**
+	 * Bootstrap a new SpaceDO: seed the complete working app scaffold
+	 * (wrangler.json, src/index.ts, public/index.html, styles.css, app.js),
+	 * commit to main, and deploy so the preview is immediately live and working.
+	 */
 	private async seedEmptySpace(): Promise<void> {
-		const marker = JSON.stringify(
-			{ agentId: this.getAgentId(), createdAt: new Date().toISOString(), seededBy: 'vibesdk-think' },
-			null,
-			2,
-		);
 		try {
+			const existingWrangler = await this.callSpace((space) =>
+				space.readFile('wrangler.json').catch(() => ''),
+			);
+			if (existingWrangler && existingWrangler.length > 0) {
+				return;
+			}
+
+			const marker = JSON.stringify(
+				{ agentId: this.getAgentId(), createdAt: new Date().toISOString(), seededBy: 'vibesdk-think' },
+				null,
+				2,
+			);
 			await this.callSpace((space) => space.writeFile('.think/space.json', marker));
-			await this.callSpace((space) => space.gitCommitLocal('chore: initialize think space'));
+
+			const wranglerJson = JSON.stringify(
+				{
+					main: 'src/index.ts',
+					compatibility_date: '2025-04-01',
+					assets: {
+						directory: './public',
+						html_handling: 'auto-trailing-slash',
+						not_found_handling: 'single-page-application',
+					},
+				},
+				null,
+				2,
+			);
+			await this.callSpace((space) => space.writeFile('wrangler.json', wranglerJson));
+
+			const indexTs = [
+				'import { DurableObject } from "cloudflare:workers";',
+				'',
+				'export class App extends DurableObject {',
+				'  constructor(ctx: DurableObjectState, env: unknown) {',
+				'    super(ctx, env);',
+				'    this.initDatabase();',
+				'  }',
+				'',
+				'  private initDatabase(): void {',
+				'    // Zero-latency embedded SQLite provided by Cloudflare Durable Objects',
+				'    // Tables created here are immediately visible in the IDE Database viewer',
+				'    this.ctx.storage.sql.exec(`',
+				'      CREATE TABLE IF NOT EXISTS items (',
+				'        id INTEGER PRIMARY KEY AUTOINCREMENT,',
+				'        title TEXT NOT NULL,',
+				'        data TEXT DEFAULT \'{}\',',
+				'        created_at TEXT DEFAULT (datetime(\'now\'))',
+				'      );',
+				'    `);',
+				'  }',
+				'',
+				'  async fetch(request: Request): Promise<Response> {',
+				'    const url = new URL(request.url);',
+				'    if (url.pathname.startsWith("/api/items")) {',
+				'      const cursor = this.ctx.storage.sql.exec("SELECT * FROM items ORDER BY id DESC");',
+				'      const items = [...cursor];',
+				'      return Response.json({ items });',
+				'    }',
+				'    if (url.pathname.startsWith("/api/")) {',
+				'      return Response.json({ status: "ok", timestamp: new Date().toISOString() });',
+				'    }',
+				'    return new Response("Not found", { status: 404 });',
+				'  }',
+				'}',
+				'',
+			].join('\n');
+			await this.callSpace((space) => space.writeFile('src/index.ts', indexTs));
+
+			const indexHtml = [
+				'<!doctype html>',
+				'<html lang="en">',
+				'<head>',
+				'  <meta charset="UTF-8" />',
+				'  <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+				'  <title>App</title>',
+				'  <script src="https://cdn.tailwindcss.com"></script>',
+				'  <link rel="stylesheet" href="./styles.css" />',
+				'</head>',
+				'<body class="bg-slate-50 text-slate-900 min-h-screen">',
+				'  <div id="root">',
+				'    <div class="flex items-center justify-center min-h-screen">',
+				'      <div class="text-center p-8 bg-white rounded-2xl shadow-sm border border-slate-100 max-w-md mx-4">',
+				'        <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-4 text-xl font-bold">✦</div>',
+				'        <h1 class="text-2xl font-bold tracking-tight text-slate-900">App Preview</h1>',
+				'        <p class="mt-2 text-sm text-slate-500">Workspace is ready. Tell the AI what you want to build!</p>',
+				'      </div>',
+				'    </div>',
+				'  </div>',
+				'  <script type="module" src="./app.js"></script>',
+				'</body>',
+				'</html>',
+				'',
+			].join('\n');
+			await this.callSpace((space) => space.writeFile('public/index.html', indexHtml));
+
+			const stylesCss = [
+				'/* Custom application styles */',
+				'@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");',
+				'',
+				'body {',
+				'  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;',
+				'}',
+				'',
+			].join('\n');
+			await this.callSpace((space) => space.writeFile('public/styles.css', stylesCss));
+
+			const appJs = [
+				'// Client-side application logic',
+				'console.log("SpaceDO application initialized");',
+				'',
+			].join('\n');
+			await this.callSpace((space) => space.writeFile('public/app.js', appJs));
+
+			await this.callSpace((space) => space.gitCommitLocal('chore: initialize project scaffold'));
+
+			// Pre-deploy the initial scaffold so the preview is immediately live and verified
+			try {
+				await this.callSpace((space) => space.deploy('main'));
+			} catch (deployErr) {
+				this.logger.warn('SpaceDO initial deploy skipped/failed (will deploy on first turn)', deployErr);
+			}
 		} catch (e) {
 			this.logger.warn('SpaceDO empty-seed failed (continuing)', e);
 		}

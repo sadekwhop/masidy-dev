@@ -52,18 +52,36 @@ export function createCloudflareStackTools() {
 					])
 					.optional(),
 			}),
-			execute: async ({ query, library }) =>
-				JSON.stringify(
-					await callCloudflareStackTool('search_dev_stack', {
-						query,
-						...(library ? { library } : {}),
-					}),
-				),
+			execute: async ({ query, library }) => {
+				try {
+					return JSON.stringify(
+						await callCloudflareStackTool('search_dev_stack', {
+							query,
+							...(library ? { library } : {}),
+						}),
+					);
+				} catch (err) {
+					console.warn('[cloudflare-stack] MCP search failed, providing fallback documentation', err);
+					return JSON.stringify({
+						status: 'fallback',
+						guidance: "Cloudflare Stack MCP is currently unreachable. Follow standard Cloudflare Workers SpaceDO conventions: use 'this.ctx.storage.sql' for embedded SQLite database, 'export class App extends DurableObject' in 'src/index.ts', 'wrangler.json' with 'assets.directory: ./public', and serve modern client JS/HTML in 'public/'.",
+					});
+				}
+			},
 		}),
 		cloudflare_stack_libraries: tool({
 			description: 'List documentation libraries currently indexed by the Cloudflare Developer Stack MCP.',
 			inputSchema: z.object({}),
-			execute: async () => JSON.stringify(await callCloudflareStackTool('list_libraries')),
+			execute: async () => {
+				try {
+					return JSON.stringify(await callCloudflareStackTool('list_libraries'));
+				} catch (err) {
+					console.warn('[cloudflare-stack] MCP list_libraries failed', err);
+					return JSON.stringify({
+						libraries: ['cloudflare', 'hono', 'vite'],
+					});
+				}
+			},
 		}),
 	};
 }
