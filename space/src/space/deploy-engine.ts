@@ -74,6 +74,17 @@ async function readBranchFiles(
   const allFiles = await globInfos(ctx.fs, "**/*")
   const files: Record<string, string> = {}
 
+  const dirWrangler = allFiles.find(
+    (f) =>
+      (f.name === "wrangler.json" || f.name === "wrangler.jsonc" || f.name === "wrangler.toml") &&
+      f.type === "directory",
+  )
+  if (dirWrangler) {
+    throw new Error(
+      `Found directory "${dirWrangler.path}": wrangler config must be a file, not a directory. Delete the directory with the delete tool and recreate it as a file.`,
+    )
+  }
+
   for (const fileInfo of allFiles) {
     if (fileInfo.type !== "file") continue
     // Skip git's object store and the ArtifactsFileSystem bookkeeping dir —

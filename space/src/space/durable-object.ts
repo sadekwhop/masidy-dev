@@ -203,10 +203,21 @@ export class SpaceDO extends DurableObject<Env> {
 
   async writeFile(path: string, content: string): Promise<{ path: string; size: number }> {
     await this.ensureInit()
+    const normalized = path.startsWith("/") ? path : `/${path}`
+    // Self-healing: if normalized is currently a directory, remove it so the file can be written.
+    try {
+      const existing = await this.overlay.stat(normalized)
+      if (existing.type === "directory") {
+        console.warn(`[SpaceDO] Removing pre-existing directory at ${normalized} before writing file`)
+        await this.fs.rm(normalized, { recursive: true, force: true })
+      }
+    } catch {
+      // Path does not exist or stat threw, proceed
+    }
     // Route through the overlay FS so a write to a previously-deleted base path
     // clears its whiteout tombstone and makes the file visible again.
-    await this.fs.writeFile(path, content)
-    return { path, size: content.length }
+    await this.fs.writeFile(normalized, content)
+    return { path: normalized, size: content.length }
   }
 
   async editFile(path: string, oldString: string, newString: string): Promise<{ path: string; size: number }> {
@@ -299,7 +310,14 @@ export class SpaceDO extends DurableObject<Env> {
 
   async mkdir(path: string, opts?: { recursive?: boolean }): Promise<void> {
     await this.ensureInit()
-    await this.fs.mkdir(path, opts)
+    const normalized = path.startsWith("/") ? path : `/${path}`
+    if (normalized === "/") return
+    const KNOWN_FILE_EXTENSIONS = /\.(json|jsonc|toml|ts|tsx|js|jsx|mjs|cjs|html|css|md|txt|svg|png|jpg|jpeg|gif|webp|ico|wasm)$/i
+    if (KNOWN_FILE_EXTENSIONS.test(normalized)) {
+      console.warn(`[SpaceDO] Ignored mkdir on file-like path: ${normalized}`)
+      return
+    }
+    await this.fs.mkdir(normalized, opts)
   }
 
   async rm(path: string, opts?: { recursive?: boolean; force?: boolean }): Promise<void> {

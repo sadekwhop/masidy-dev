@@ -1,4 +1,5 @@
 import type { FileInfo } from '@cloudflare/shell';
+import { normalizeWorkspacePath } from './workspace-tools';
 import type {
 	DeleteOperations,
 	EditOperations,
@@ -97,17 +98,19 @@ function compareByPath(a: FileInfo, b: FileInfo): number {
 export function createSpaceWorkspaceOps(getStub: () => SpaceWorkspaceStub): SpaceWorkspaceOps {
 	const ops: SpaceWorkspaceOps = {
 		async readFile(path: string): Promise<string | null> {
+			const normalized = normalizeWorkspacePath(path);
 			try {
-				return await withDurableObjectResetRetry(getStub, (stub) => stub.readFile(path));
+				return await withDurableObjectResetRetry(getStub, (stub) => stub.readFile(normalized));
 			} catch {
 				return null;
 			}
 		},
 
 		async readFileBytes(path: string): Promise<Uint8Array | null> {
+			const normalized = normalizeWorkspacePath(path);
 			try {
 				return await withDurableObjectResetRetry(getStub, (stub) =>
-					stub.readFileBytes(path),
+					stub.readFileBytes(normalized),
 				);
 			} catch {
 				return null;
@@ -115,29 +118,39 @@ export function createSpaceWorkspaceOps(getStub: () => SpaceWorkspaceStub): Spac
 		},
 
 		async stat(path: string): Promise<FileInfo | null> {
+			const normalized = normalizeWorkspacePath(path);
 			try {
-				return await withDurableObjectResetRetry(getStub, (stub) => stub.stat(path));
+				return await withDurableObjectResetRetry(getStub, (stub) => stub.stat(normalized));
 			} catch {
 				return null;
 			}
 		},
 
 		async writeFile(path: string, content: string): Promise<void> {
+			const normalized = normalizeWorkspacePath(path);
 			// TEMP: flag double-escaped content arriving at the write boundary.
-			logSuspiciousEscaping(path, content);
-			await withDurableObjectResetRetry(getStub, (stub) => stub.writeFile(path, content));
+			logSuspiciousEscaping(normalized, content);
+			await withDurableObjectResetRetry(getStub, (stub) => stub.writeFile(normalized, content));
 		},
 
 		async mkdir(path: string, opts?: { recursive?: boolean }): Promise<void> {
-			await withDurableObjectResetRetry(getStub, (stub) => stub.mkdir(path, opts));
+			const normalized = normalizeWorkspacePath(path);
+			if (normalized === '/') return;
+			const KNOWN_FILE_EXTENSIONS = /\.(json|jsonc|toml|ts|tsx|js|jsx|mjs|cjs|html|css|md|txt|svg|png|jpg|jpeg|gif|webp|ico|wasm)$/i;
+			if (KNOWN_FILE_EXTENSIONS.test(normalized)) {
+				console.warn(`[space-workspace-ops] Blocked accidental mkdir on file-like path: ${normalized}`);
+				return;
+			}
+			await withDurableObjectResetRetry(getStub, (stub) => stub.mkdir(normalized, opts));
 		},
 
 		async readDir(
 			dir: string,
 			opts?: { limit?: number; offset?: number },
 		): Promise<FileInfo[]> {
+			const normalized = dir ? normalizeWorkspacePath(dir) : '/';
 			try {
-				return await withDurableObjectResetRetry(getStub, (stub) => stub.readDir(dir, opts));
+				return await withDurableObjectResetRetry(getStub, (stub) => stub.readDir(normalized, opts));
 			} catch {
 				return [];
 			}
@@ -157,7 +170,8 @@ export function createSpaceWorkspaceOps(getStub: () => SpaceWorkspaceStub): Spac
 			path: string,
 			opts?: { recursive?: boolean; force?: boolean },
 		): Promise<void> {
-			await withDurableObjectResetRetry(getStub, (stub) => stub.rm(path, opts));
+			const normalized = normalizeWorkspacePath(path);
+			await withDurableObjectResetRetry(getStub, (stub) => stub.rm(normalized, opts));
 		},
 	};
 

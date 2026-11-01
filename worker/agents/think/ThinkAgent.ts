@@ -4,14 +4,13 @@ import { createWorkersAI } from 'workers-ai-provider';
 import type { LanguageModel, ToolSet } from 'ai';
 import {
 	createReadTool,
-	createWriteTool,
 	createEditTool,
-	createListTool,
 	createFindTool,
 	createGrepTool,
 	createDeleteTool,
 } from '@cloudflare/think/tools/workspace';
 import type { SkillSource } from 'agents/skills';
+import { createSpaceWriteTool, createSpaceListTool } from './workspace-tools';
 import { createSpaceWorkspaceOps, type SpaceWorkspaceStub } from './space-workspace-ops';
 import { selectSystemPrompt, PROMPT_MAX_STEPS } from './prompts';
 import { createThinkSkillSource } from './skills';
@@ -211,9 +210,9 @@ export class ThinkAgent extends Think<Env> {
 		// versions win the tool-merge. Bash is disabled via `workspaceBash`.
 		return {
 			read: createReadTool({ ops }),
-			write: createWriteTool({ ops }),
+			write: createSpaceWriteTool({ ops }),
 			edit: createEditTool({ ops }),
-			list: createListTool({ ops }),
+			list: createSpaceListTool({ ops }),
 			find: createFindTool({ ops }),
 			grep: createGrepTool({ ops }),
 			delete: createDeleteTool({ ops }),
